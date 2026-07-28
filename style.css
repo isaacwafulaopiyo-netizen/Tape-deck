@@ -610,6 +610,17 @@ audio{width:100%;margin-top:1rem;}
 }
 .person-btn:hover{border-color:var(--amber-dim);color:var(--cream);}
 .person-btn.following{border-color:var(--amber);color:var(--amber);}
+.unread-badge{
+  background:var(--red);
+  color:#fff;
+  font-size:10px;
+  font-weight:700;
+  padding:3px 8px;
+  border-radius:10px;
+  text-transform:uppercase;
+  letter-spacing:0.03em;
+  flex-shrink:0;
+}
 
 /* messages */
 .conversation-row{
@@ -758,7 +769,10 @@ label.mini-btn{display:flex;align-items:center;justify-content:center;cursor:poi
   font-weight:700;
   display:flex;align-items:center;justify-content:center;
   flex-shrink:0;
+  overflow:hidden;
 }
+.avatar img{width:100%;height:100%;object-fit:cover;}
+.avatar-sm{width:20px;height:20px;font-size:9px;}
 .feed-item{
   padding:10px 12px;
   border:1px solid var(--line);

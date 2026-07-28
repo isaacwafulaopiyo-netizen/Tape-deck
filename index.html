@@ -21,12 +21,15 @@
     </div>
     <div class="profile-menu" id="profileMenu">
       <button class="profile-btn" id="profileBtn">
+        <span class="avatar avatar-sm" id="myAvatar">…</span>
         <span class="online-dot"></span>
         <span id="myUsername">…</span>
         <span class="chevron">&#9662;</span>
       </button>
       <div class="profile-dropdown" id="profileDropdown">
         <div class="dropdown-item" id="listenStatItem">Listened: 0m</div>
+        <input type="file" id="avatarInput" accept="image/*" hidden />
+        <button class="dropdown-item" id="changeAvatarItem">Change profile picture</button>
         <button class="dropdown-item" id="notifToggleItem">Enable message notifications</button>
         <button class="dropdown-item" id="dataSaverItem">Data saver: off</button>
         <button class="dropdown-item" id="signOutEverywhereItem">Sign out of all devices</button>

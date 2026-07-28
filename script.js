@@ -1,9 +1,3 @@
-// Note: onboarding, prefs, library, playlists, and recently-played are
-  // all persisted for real via Supabase (see the persistence section
-  // below) -- an earlier version of this used a storage mechanism that
-  // only works inside Claude.ai, which silently did nothing on a
-  // standalone site. That's fixed now.
-
   /* ================= accounts, presence, follow, messaging ================= */
 
   const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -15,6 +9,7 @@
   let followingIds = new Set();
   let activeConversationUserId = null;
   let unreadFromUserIds = new Set();
+  let lastMessageTimeByUser = {};
   let messagesChannel = null;
 
   const deviceId = (crypto.randomUUID ? crypto.randomUUID() : 'dev-' + Math.random().toString(36).slice(2));
@@ -51,6 +46,7 @@
     document.getElementById('myUsername').textContent = currentUser.username;
     document.getElementById('listenStatItem').textContent = 'Listened: ' + formatDuration(currentUser.total_listen_seconds || 0);
     document.getElementById('adminLink').style.display = currentUser.is_admin ? 'block' : 'none';
+    setAvatarElement(document.getElementById('myAvatar'), currentUser);
   }
 
   function markPlaying(){
@@ -173,6 +169,41 @@
     return (name || '?').trim().slice(0,2).toUpperCase();
   }
 
+  function setAvatarElement(el, profile){
+    if(profile && profile.avatar_url){
+      el.innerHTML = `<img src="${profile.avatar_url}" alt="">`;
+    } else {
+      el.textContent = initials(profile ? profile.username : '?');
+    }
+  }
+
+  document.getElementById('changeAvatarItem').onclick = () => {
+    document.getElementById('profileDropdown').classList.remove('open');
+    document.getElementById('avatarInput').click();
+  };
+
+  document.getElementById('avatarInput').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if(!file) return;
+    showToast('Updating profile picture…');
+    try{
+      const path = currentUser.id + '/avatar-' + Date.now() + '-' + file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+      const { error: uploadError } = await supabaseClient.storage.from('avatars').upload(path, file);
+      if(uploadError){ showToast('Failed to upload: ' + uploadError.message); return; }
+      const { data } = supabaseClient.storage.from('avatars').getPublicUrl(path);
+      const { error: updateError } = await supabaseClient.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', currentUser.id);
+      if(updateError){ showToast('Failed to save: ' + updateError.message); return; }
+      currentUser.avatar_url = data.publicUrl;
+      setAvatarElement(document.getElementById('myAvatar'), currentUser);
+      showToast('Profile picture updated');
+      if(activeView === 'people') renderPeopleView();
+      if(activeView === 'messages') renderConversationList();
+    }catch(err){
+      showToast('Something went wrong updating your picture');
+    }
+  });
+
   function renderPeopleView(){
     const filter = document.getElementById('peopleFilter').value;
     if(filter === 'feed'){
@@ -200,7 +231,7 @@
       row.className = 'person-row';
       const avatar = document.createElement('span');
       avatar.className = 'avatar';
-      avatar.textContent = initials(p.username);
+      setAvatarElement(avatar, p);
       row.appendChild(avatar);
       const dot = document.createElement('span');
       dot.className = 'person-dot' + (onlineUserIds.has(p.id) ? ' online' : '');
@@ -211,8 +242,8 @@
       row.appendChild(name);
       if(unreadFromUserIds.has(p.id)){
         const badge = document.createElement('span');
-        badge.className = 'tab-dot';
-        badge.title = 'New message';
+        badge.className = 'unread-badge';
+        badge.textContent = 'New message';
         row.appendChild(badge);
       }
       const msgBtn = document.createElement('button');
@@ -292,12 +323,20 @@
       list.innerHTML = '<div class="empty">No one to message yet.</div>';
       return;
     }
-    allProfiles.forEach(p => {
+    const sorted = allProfiles.slice().sort((a, b) => {
+      const ta = lastMessageTimeByUser[a.id] || '';
+      const tb = lastMessageTimeByUser[b.id] || '';
+      if(ta && !tb) return -1;
+      if(!ta && tb) return 1;
+      if(ta !== tb) return ta > tb ? -1 : 1;
+      return a.username.localeCompare(b.username);
+    });
+    sorted.forEach(p => {
       const row = document.createElement('div');
       row.className = 'conversation-row';
       const avatar = document.createElement('span');
       avatar.className = 'avatar';
-      avatar.textContent = initials(p.username);
+      setAvatarElement(avatar, p);
       row.appendChild(avatar);
       const dot = document.createElement('span');
       dot.className = 'person-dot' + (onlineUserIds.has(p.id) ? ' online' : '');
@@ -308,8 +347,8 @@
       row.appendChild(name);
       if(unreadFromUserIds.has(p.id)){
         const badge = document.createElement('span');
-        badge.className = 'tab-dot';
-        badge.title = 'New message';
+        badge.className = 'unread-badge';
+        badge.textContent = 'New message';
         row.appendChild(badge);
       }
       row.onclick = () => openConversation(p.id, p.username);
@@ -356,6 +395,7 @@
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
         const m = payload.new;
         if(m.recipient_id !== currentUser.id) return;
+        lastMessageTimeByUser[m.sender_id] = m.created_at;
         if(activeView === 'messages' && activeConversationUserId === m.sender_id){
           loadMessages(m.sender_id);
           markConversationRead(m.sender_id);
@@ -368,6 +408,20 @@
         }
       })
       .subscribe();
+  }
+
+  async function loadConversationOrder(){
+    const { data } = await supabaseClient
+      .from('messages')
+      .select('sender_id, recipient_id, created_at')
+      .or(`sender_id.eq.${currentUser.id},recipient_id.eq.${currentUser.id}`)
+      .order('created_at', { ascending: false });
+    const seen = {};
+    (data || []).forEach(m => {
+      const other = m.sender_id === currentUser.id ? m.recipient_id : m.sender_id;
+      if(!(other in seen)) seen[other] = m.created_at; // first hit per person is the most recent, since sorted desc
+    });
+    lastMessageTimeByUser = seen;
   }
 
   async function notifyNewMessage(m){
@@ -449,6 +503,7 @@
       recipient_id: activeConversationUserId,
       content
     });
+    lastMessageTimeByUser[activeConversationUserId] = new Date().toISOString();
     loadMessages(activeConversationUserId);
   }
 
@@ -1615,6 +1670,7 @@
     try{ setupPlaybackSync(); }catch(e){ console.error(e); }
     try{ loadPeople(); }catch(e){ console.error(e); }
     try{ refreshUnreadCount(); }catch(e){ console.error(e); }
+    try{ loadConversationOrder(); }catch(e){ console.error(e); }
     try{ subscribeToGlobalMessages(); }catch(e){ console.error(e); }
     try{ checkAnnouncements(); }catch(e){ console.error(e); }
     try{ checkWelcomeBanner(); }catch(e){ console.error(e); }
