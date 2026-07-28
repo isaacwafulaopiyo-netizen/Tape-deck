@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#171310">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<title>Tape Deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="top-row">
+    <div>
+      <p class="eyebrow">One deck. Every source.</p>
+      <h1>Tape Deck</h1>
+    </div>
+    <div class="profile-menu" id="profileMenu">
+      <button class="profile-btn" id="profileBtn">
+        <span class="online-dot"></span>
+        <span id="myUsername">…</span>
+        <span class="chevron">&#9662;</span>
+      </button>
+      <div class="profile-dropdown" id="profileDropdown">
+        <div class="dropdown-item" id="listenStatItem">Listened: 0m</div>
+        <button class="dropdown-item" id="notifToggleItem">Enable message notifications</button>
+        <button class="dropdown-item" id="dataSaverItem">Data saver: off</button>
+        <button class="dropdown-item" id="signOutEverywhereItem">Sign out of all devices</button>
+        <button class="dropdown-item" id="suggestMusicItem">Suggest music taste</button>
+        <a class="dropdown-item" href="help.html" target="_blank" rel="noopener">Help &amp; Support</a>
+        <a class="dropdown-item" href="about.html" target="_blank" rel="noopener">About the developer</a>
+        <a class="dropdown-item" href="admin.html" id="adminLink" target="_blank" rel="noopener" style="display:none;">Admin dashboard</a>
+        <button class="dropdown-item" id="logoutBtn">Sign out</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="search-row">
+    <button class="search-icon-btn" id="searchToggleBtn" title="Search songs">&#128269;</button>
+    <div class="search-bar" id="searchBar" style="display:none;">
+      <input type="text" id="searchInput" placeholder="Search your songs…" />
+      <button class="search-close" id="searchCloseBtn" title="Close">&times;</button>
+    </div>
+  </div>
+  <div class="search-results" id="searchResults" style="display:none;"></div>
+
+  <div class="announcement-banner" id="announcementBanner" style="display:none;">
+    <div>
+      <strong id="announcementTitle"></strong>
+      <p id="announcementBody"></p>
+    </div>
+    <button class="mini-btn" id="announcementDismiss">Got it</button>
+  </div>
+
+  <div class="announcement-banner" id="welcomeBanner" style="display:none;">
+    <div>
+      <strong id="welcomeTitle">Welcome to Tape Deck!</strong>
+      <p id="welcomeBody"></p>
+    </div>
+    <button class="mini-btn" id="welcomeDismiss">Got it</button>
+  </div>
+
+  <div class="announcement-banner" id="tasteBanner" style="display:none;">
+    <div style="flex:1;">
+      <strong>What music do you love?</strong>
+      <p style="margin-bottom:8px;">Tell us your favorite genres, artists, or songs — the developer reads these and adds music based on what people ask for.</p>
+      <textarea id="tasteInput" rows="2" placeholder="e.g. Afrobeat, Burna Boy, R&amp;B from the 2000s..." style="width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;color:var(--cream);font-family:'Inter',sans-serif;font-size:13px;resize:vertical;margin-bottom:8px;"></textarea>
+      <div style="display:flex;gap:8px;">
+        <button class="mini-btn active" id="tasteSubmitBtn">Submit</button>
+        <button class="mini-btn" id="tasteSkipBtn">Not now</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="deck">
+    <div class="cassette">
+      <div class="reels">
+        <svg class="reel" id="reelL" viewBox="0 0 64 64"><g class="hub"><circle cx="32" cy="32" r="30" fill="none" stroke="#3a3226" stroke-width="2"/><circle cx="32" cy="32" r="10" fill="#171310" stroke="#3a3226" stroke-width="2"/><line x1="32" y1="22" x2="32" y2="10" stroke="#3a3226" stroke-width="2"/><line x1="32" y1="42" x2="32" y2="54" stroke="#3a3226" stroke-width="2"/><line x1="22" y1="32" x2="10" y2="32" stroke="#3a3226" stroke-width="2"/><line x1="42" y1="32" x2="54" y2="32" stroke="#3a3226" stroke-width="2"/></g></svg>
+        <svg class="reel" id="reelR" viewBox="0 0 64 64"><g class="hub"><circle cx="32" cy="32" r="30" fill="none" stroke="#3a3226" stroke-width="2"/><circle cx="32" cy="32" r="10" fill="#171310" stroke="#3a3226" stroke-width="2"/><line x1="32" y1="22" x2="32" y2="10" stroke="#3a3226" stroke-width="2"/><line x1="32" y1="42" x2="32" y2="54" stroke="#3a3226" stroke-width="2"/><line x1="22" y1="32" x2="10" y2="32" stroke="#3a3226" stroke-width="2"/><line x1="42" y1="32" x2="54" y2="32" stroke="#3a3226" stroke-width="2"/></g></svg>
+      </div>
+      <p class="now-title" id="trackTitle">Nothing queued</p>
+      <p class="now-sub" id="trackSub">Add a link below to get started</p>
+      <div class="remote-banner" id="remoteBanner" style="display:none;">
+        <span class="remote-dot"></span>
+        Playing on another device: <strong id="remoteTrackTitle"></strong>
+      </div>
+      <div class="counter-row">
+        <div class="counter"><span id="ctrCurrent">000</span><span class="slash">/</span><span id="ctrTotal">000</span></div>
+      </div>
+      <div class="controls">
+        <button class="ctrl-btn" id="prevBtn" title="Previous">&#9664;&#9664;</button>
+        <button class="ctrl-btn play" id="playBtn" title="Play/Pause">&#9654;</button>
+        <button class="ctrl-btn" id="nextBtn" title="Next">&#9654;&#9654;</button>
+      </div>
+      <div class="controls-secondary">
+        <button class="mini-btn" id="shuffleBtn" title="Shuffle">Shuffle</button>
+        <button class="mini-btn" id="repeatBtn" title="Repeat">Repeat: off</button>
+        <div class="volume-row">
+          <span class="vol-icon">&#128266;</span>
+          <input type="range" id="volumeSlider" min="0" max="100" value="80" />
+        </div>
+      </div>
+      <div id="ytHolder"></div>
+      <div id="genericHolder"></div>
+      <audio id="audioPlayer"></audio>
+      <audio id="preloadAudio" preload="auto" style="display:none;"></audio>
+    </div>
+  </div>
+
+  <div class="add-row">
+    <input type="text" id="urlInput" placeholder="Paste a YouTube link or direct audio file URL" />
+    <button id="addBtn">Add to reel</button>
+  </div>
+
+  <div class="upload-row">
+    <input type="file" id="fileInput" accept="audio/*" multiple hidden />
+    <label for="fileInput" class="upload-btn">
+      <span class="upload-icon">&#8593;</span>
+      <span>Upload songs from your device</span>
+    </label>
+    <p class="sync-note">Uploaded songs are shared with every user of this app and sync across your own devices too.</p>
+  </div>
+
+  <p class="hint">Every song — pasted links and uploads alike — is shared with everyone using this app and syncs across your devices.</p>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tabLibrary" data-view="library">Library</button>
+    <button class="tab-btn" id="tabPlaylists" data-view="playlists">Playlists</button>
+    <button class="tab-btn" id="tabRecent" data-view="recent">Recently played</button>
+    <button class="tab-btn" id="tabPeople" data-view="people">People</button>
+    <button class="tab-btn" id="tabMessages" data-view="messages">Messages<span class="tab-dot" id="messagesDot" style="display:none;"></span></button>
+  </div>
+
+  <div id="libraryPanel" class="panel">
+    <label class="toggle-row">
+      <input type="checkbox" id="hideLocalToggle" />
+      <span>Hide songs uploaded from this device</span>
+    </label>
+    <button class="library-toggle" id="libraryToggle">Show library (<span id="libraryCount">0</span> songs)</button>
+    <div class="alpha-nav" id="libraryAlphaNav"></div>
+    <div id="queueList" style="display:none;"></div>
+  </div>
+
+  <div id="playlistsPanel" class="panel" style="display:none;">
+    <div class="playlist-create-row">
+      <input type="text" id="playlistNameInput" placeholder="New playlist name" />
+      <button id="createPlaylistBtn">Create</button>
+    </div>
+    <div id="playlistChips"></div>
+    <div id="playlistTracks"></div>
+  </div>
+
+  <div id="recentPanel" class="panel" style="display:none;">
+    <div id="recentList"></div>
+  </div>
+
+  <div id="peoplePanel" class="panel" style="display:none;">
+    <select id="peopleFilter" class="playlist-select" style="max-width:none;width:100%;margin-bottom:0.75rem;padding:9px;">
+      <option value="everyone">Everyone</option>
+      <option value="feed">Following's activity feed</option>
+    </select>
+    <p class="queue-label" id="peopleLabel">Everyone</p>
+    <div id="peopleList"></div>
+    <div id="feedList" style="display:none;"></div>
+  </div>
+
+  <div id="messagesPanel" class="panel" style="display:none;">
+    <div id="conversationList"></div>
+    <div id="chatView" style="display:none;">
+      <button class="mini-btn" id="backToConversations">&#8592; Back</button>
+      <p class="queue-label" id="chatWithLabel"></p>
+      <div id="chatMessages"></div>
+      <div class="sticker-strip" id="stickerStrip">
+        <button class="sticker-btn" data-sticker="😂">😂</button>
+        <button class="sticker-btn" data-sticker="😍">😍</button>
+        <button class="sticker-btn" data-sticker="🔥">🔥</button>
+        <button class="sticker-btn" data-sticker="👍">👍</button>
+        <button class="sticker-btn" data-sticker="🎧">🎧</button>
+        <button class="sticker-btn" data-sticker="😢">😢</button>
+        <button class="sticker-btn" data-sticker="🎉">🎉</button>
+        <button class="sticker-btn" data-sticker="❤️">❤️</button>
+      </div>
+      <div class="chat-input-row">
+        <button class="mini-btn" id="emojiBtn" title="Emoji">&#128512;</button>
+        <input type="file" id="chatImageInput" accept="image/*,image/gif" hidden />
+        <label for="chatImageInput" class="mini-btn" title="Send image or GIF">&#128247;</label>
+        <input type="text" id="chatInput" placeholder="Type a message" />
+        <button id="chatSendBtn">Send</button>
+      </div>
+      <div class="emoji-picker" id="emojiPicker" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<div class="onboarding-overlay" id="onboardingOverlay" style="display:none;">
+  <div class="onboarding-card">
+    <button class="onboarding-close" id="onboardingClose" title="Skip tour">&times;</button>
+    <p class="onboarding-step" id="onboardingStepNum">Step 1 of 6</p>
+    <h3 class="onboarding-title" id="onboardingTitle"></h3>
+    <p class="onboarding-desc" id="onboardingDesc"></p>
+    <button class="onboarding-next" id="onboardingNext">Got it, next</button>
+  </div>
+</div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="script.js"></script>
+<script>
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').then((reg) => {
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          newWorker.addEventListener('statechange', () => {
+            if(newWorker.state === 'installed' && navigator.serviceWorker.controller){
+              showUpdateBanner(reg);
+            }
+          });
+        });
+      }).catch(() => {});
+    });
+  }
+
+  function showUpdateBanner(reg){
+    const banner = document.createElement('div');
+    banner.style.cssText = 'position:fixed;left:50%;bottom:20px;transform:translateX(-50%);'
+      + 'background:#E8A33D;color:#171310;padding:10px 16px;border-radius:8px;'
+      + 'font-family:Inter,sans-serif;font-size:13px;font-weight:600;z-index:999;'
+      + 'display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,0.4);';
+    banner.innerHTML = 'A new version is ready <button style="background:#171310;color:#E8A33D;border:none;'
+      + 'padding:6px 12px;border-radius:5px;font-weight:600;cursor:pointer;">Reload</button>';
+    banner.querySelector('button').onclick = () => {
+      reg.waiting ? reg.waiting.postMessage({type:'SKIP_WAITING'}) : null;
+      window.location.reload();
+    };
+    document.body.appendChild(banner);
+  }
+</script>
+</body>
+</html>

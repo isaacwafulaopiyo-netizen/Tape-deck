@@ -1,0 +1,1 @@
+drop policy if exists "Adder can delete their own shared track" on public.shared_tracks;

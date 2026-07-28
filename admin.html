@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tape Deck — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .back-link{
+    display:inline-block;color:var(--tan);font-size:13px;text-decoration:none;margin-bottom:1rem;
+  }
+  .back-link:hover{color:var(--cream);}
+  .stat-row{display:flex;gap:10px;margin-bottom:1.5rem;flex-wrap:wrap;}
+  .stat-card{
+    flex:1;min-width:120px;background:var(--surface);border:1px solid var(--line);
+    border-radius:8px;padding:14px;text-align:center;
+  }
+  .stat-num{font-family:'JetBrains Mono',monospace;font-size:24px;color:var(--amber);font-weight:700;}
+  .stat-label{font-size:11px;color:var(--tan);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{
+    text-align:left;color:var(--tan);font-family:'JetBrains Mono',monospace;
+    font-size:11px;text-transform:uppercase;letter-spacing:0.06em;
+    padding:8px 10px;border-bottom:1px solid var(--line);
+  }
+  td{padding:10px;border-bottom:1px solid var(--line);}
+  tr:last-child td{border-bottom:none;}
+  .status-dot{width:8px;height:8px;border-radius:50%;background:var(--line);display:inline-block;margin-right:6px;}
+  .status-dot.online{background:var(--amber);}
+  .denied{text-align:center;color:var(--tan);padding:3rem 0;}
+
+  .announce-form{
+    background:var(--surface);border:1px solid var(--line);border-radius:8px;
+    padding:1rem;margin-bottom:1rem;
+  }
+  .announce-form input, .announce-form textarea{
+    width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:6px;
+    padding:9px 11px;color:var(--cream);font-family:'Inter',sans-serif;font-size:13px;
+    margin-bottom:8px;resize:vertical;
+  }
+  .announce-form input::placeholder, .announce-form textarea::placeholder{color:var(--tan);}
+  .announce-form button{
+    background:var(--amber);border:none;color:#171310;font-weight:600;
+    font-size:13px;padding:9px 16px;border-radius:6px;cursor:pointer;
+  }
+  .announce-status{font-size:12px;color:var(--tan);margin:8px 0 0;}
+  .announce-item{
+    display:flex;justify-content:space-between;align-items:flex-start;gap:10px;
+    background:var(--surface);border:1px solid var(--line);border-radius:8px;
+    padding:12px 14px;margin-bottom:8px;
+  }
+  .announce-item strong{font-size:14px;color:var(--cream);display:block;margin-bottom:2px;}
+  .announce-item p{font-size:13px;color:var(--tan);margin:0 0 6px;line-height:1.4;}
+  .announce-date{font-size:11px;color:var(--tan);font-family:'JetBrains Mono',monospace;}
+  .reply-row{
+    display:flex;gap:6px;margin-top:8px;
+  }
+  .reply-row input{
+    flex:1;background:var(--surface2);border:1px solid var(--line);border-radius:6px;
+    padding:7px 10px;color:var(--cream);font-family:'Inter',sans-serif;font-size:12px;
+  }
+  .reply-row button{
+    background:var(--amber);border:none;color:#171310;font-weight:600;
+    font-size:12px;padding:7px 12px;border-radius:6px;cursor:pointer;
+  }
+</style>
+</head>
+<body>
+<div class="wrap" style="max-width:800px;">
+  <a class="back-link" href="index.html">&#8592; Back to Tape Deck</a>
+  <p class="eyebrow">Admin dashboard</p>
+  <h1>Tape Deck</h1>
+  <div id="content">
+    <p class="hint">Loading…</p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  function formatDuration(seconds){
+    const mins = Math.floor((seconds || 0) / 60);
+    if(mins < 60) return mins + 'm';
+    return Math.floor(mins/60) + 'h ' + (mins%60) + 'm';
+  }
+
+  let meIdForReply = null;
+
+  async function init(){
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if(!session){ window.location.replace('login.html'); return; }
+
+    const { data: me } = await supabaseClient.from('profiles').select('*').eq('id', session.user.id).single();
+    if(!me || !me.is_admin){
+      document.getElementById('content').innerHTML = '<div class="denied">This account isn\'t an admin. Ask whoever runs the site to flip your is_admin flag in Supabase.</div>';
+      return;
+    }
+    meIdForReply = me.id;
+
+    const { data: profiles } = await supabaseClient.from('profiles').select('*').order('created_at', {ascending:false});
+    const list = profiles || [];
+
+    // presence: join the same channel the main app uses, to see who's online right now
+    const onlineIds = new Set();
+    const channel = supabaseClient.channel('online-users', { config: { presence: { key: me.id } } });
+    channel.on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState();
+      Object.keys(state).forEach(id => onlineIds.add(id));
+      renderTable(list, onlineIds);
+    });
+    channel.subscribe(async (status) => {
+      if(status === 'SUBSCRIBED') await channel.track({ username: me.username, admin: true });
+    });
+
+    const totalListenSeconds = list.reduce((sum, p) => sum + (p.total_listen_seconds || 0), 0);
+
+    document.getElementById('content').innerHTML = `
+      <div class="stat-row">
+        <div class="stat-card"><div class="stat-num">${list.length}</div><div class="stat-label">Total users</div></div>
+        <div class="stat-card"><div class="stat-num" id="onlineCount">0</div><div class="stat-label">Online now</div></div>
+        <div class="stat-card"><div class="stat-num">${formatDuration(totalListenSeconds)}</div><div class="stat-label">Total listening</div></div>
+      </div>
+      <table>
+        <thead><tr><th>User</th><th>Joined</th><th>Listened</th><th>Status</th></tr></thead>
+        <tbody id="userRows"></tbody>
+      </table>
+
+      <p class="eyebrow" style="margin-top:2rem;">Welcome message</p>
+      <h2 style="font-family:'Oswald',sans-serif;font-size:20px;margin:0 0 1rem;">Shown once to every new account</h2>
+      <div class="announce-form">
+        <textarea id="welcomeMessageInput" placeholder="Welcome message..." rows="2"></textarea>
+        <button id="welcomeSaveBtn">Save</button>
+        <p class="announce-status" id="welcomeStatus"></p>
+      </div>
+
+      <p class="eyebrow" style="margin-top:2rem;">Announcements</p>
+      <h2 style="font-family:'Oswald',sans-serif;font-size:20px;margin:0 0 1rem;">Message everyone in-app</h2>
+      <div class="announce-form">
+        <input type="text" id="announceTitle" placeholder="Title (e.g. \"New feature: playlists!\")" />
+        <textarea id="announceBody" placeholder="What's new..." rows="3"></textarea>
+        <button id="announceSendBtn">Post announcement</button>
+        <p class="announce-status" id="announceStatus"></p>
+      </div>
+      <div id="announcementRows"></div>
+
+      <p class="eyebrow" style="margin-top:2rem;">Music taste suggestions</p>
+      <h2 style="font-family:'Oswald',sans-serif;font-size:20px;margin:0 0 1rem;">What users are asking for</h2>
+      <div id="musicRequestRows"></div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2rem;">
+        <p class="eyebrow" style="margin:0;">Shared library</p>
+        <button class="mini-btn" id="toggleSharedLibraryBtn">Hide songs</button>
+      </div>
+      <h2 style="font-family:'Oswald',sans-serif;font-size:20px;margin:0 0 1rem;">Songs added by URL / upload</h2>
+      <table id="sharedTrackTable">
+        <thead><tr><th>Title</th><th>Added by</th><th></th></tr></thead>
+        <tbody id="sharedTrackRows"></tbody>
+      </table>
+    `;
+    renderTable(list, onlineIds);
+    loadSharedTracks(list);
+    loadAnnouncements();
+    loadMusicRequests(list);
+    loadWelcomeMessage();
+    document.getElementById('announceSendBtn').onclick = () => postAnnouncement(me.id);
+    document.getElementById('welcomeSaveBtn').onclick = saveWelcomeMessage;
+    document.getElementById('toggleSharedLibraryBtn').onclick = () => {
+      const table = document.getElementById('sharedTrackTable');
+      const btn = document.getElementById('toggleSharedLibraryBtn');
+      const showing = table.style.display !== 'none';
+      table.style.display = showing ? 'none' : 'table';
+      btn.textContent = showing ? 'Show songs' : 'Hide songs';
+    };
+  }
+
+  async function loadWelcomeMessage(){
+    const { data } = await supabaseClient.from('app_settings').select('welcome_message').eq('id', 1).single();
+    document.getElementById('welcomeMessageInput').value = (data && data.welcome_message) || '';
+  }
+
+  async function saveWelcomeMessage(){
+    const message = document.getElementById('welcomeMessageInput').value.trim();
+    const status = document.getElementById('welcomeStatus');
+    if(!message){ status.textContent = 'Message cannot be empty.'; return; }
+    const { error } = await supabaseClient.from('app_settings').update({ welcome_message: message }).eq('id', 1);
+    status.textContent = error ? 'Failed to save: ' + error.message : 'Saved.';
+  }
+
+  async function loadMusicRequests(userList){
+    const { data } = await supabaseClient.from('music_requests').select('*').order('created_at', {ascending:false});
+    const nameById = {};
+    userList.forEach(p => nameById[p.id] = p.username);
+    const box = document.getElementById('musicRequestRows');
+    const items = data || [];
+    if(items.length === 0){
+      box.innerHTML = '<p style="color:var(--tan);font-size:13px;">No suggestions submitted yet.</p>';
+      return;
+    }
+    box.innerHTML = items.map(r => `
+      <div class="announce-item">
+        <div style="flex:1;">
+          <strong>${escapeHtml(nameById[r.user_id] || 'Unknown user')}</strong>
+          <p>${escapeHtml(r.content)}</p>
+          <span class="announce-date">${new Date(r.created_at).toLocaleString()}</span>
+          <div class="reply-row" id="reply-row-${r.id}" style="display:none;">
+            <input type="text" id="reply-input-${r.id}" placeholder="Type a reply..." />
+            <button data-reply-send="${r.id}" data-user="${r.user_id}">Send</button>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+          <button class="mini-btn" data-reply-toggle="${r.id}">Reply</button>
+          <button class="remove-btn" data-id="${r.id}" title="Clear">&times;</button>
+        </div>
+      </div>
+    `).join('');
+    box.querySelectorAll('button[data-id]').forEach(btn => {
+      btn.onclick = async () => {
+        if(!confirm('Clear this suggestion?')) return;
+        await supabaseClient.from('music_requests').delete().eq('id', btn.dataset.id);
+        loadMusicRequests(userList);
+      };
+    });
+    box.querySelectorAll('button[data-reply-toggle]').forEach(btn => {
+      btn.onclick = () => {
+        const row = document.getElementById('reply-row-' + btn.dataset.replyToggle);
+        row.style.display = row.style.display === 'none' ? 'flex' : 'none';
+      };
+    });
+    box.querySelectorAll('button[data-reply-send]').forEach(btn => {
+      btn.onclick = async () => {
+        const input = document.getElementById('reply-input-' + btn.dataset.replySend);
+        const content = input.value.trim();
+        if(!content) return;
+        await supabaseClient.from('messages').insert({
+          sender_id: meIdForReply,
+          recipient_id: btn.dataset.user,
+          content
+        });
+        input.value = '';
+        document.getElementById('reply-row-' + btn.dataset.replySend).style.display = 'none';
+      };
+    });
+  }
+
+  async function loadAnnouncements(){
+    const { data } = await supabaseClient.from('announcements').select('*').order('created_at', {ascending:false});
+    const box = document.getElementById('announcementRows');
+    const items = data || [];
+    if(items.length === 0){
+      box.innerHTML = '<p style="color:var(--tan);font-size:13px;">No announcements posted yet.</p>';
+      return;
+    }
+    box.innerHTML = items.map(a => `
+      <div class="announce-item">
+        <div>
+          <strong>${escapeHtml(a.title)}</strong>
+          <p>${escapeHtml(a.body)}</p>
+          <span class="announce-date">${new Date(a.created_at).toLocaleString()}</span>
+        </div>
+        <button class="remove-btn" data-id="${a.id}" title="Delete">&times;</button>
+      </div>
+    `).join('');
+    box.querySelectorAll('button[data-id]').forEach(btn => {
+      btn.onclick = async () => {
+        if(!confirm('Delete this announcement? This removes it for everyone.')) return;
+        await supabaseClient.from('announcements').delete().eq('id', btn.dataset.id);
+        loadAnnouncements();
+      };
+    });
+  }
+
+  async function postAnnouncement(adminId){
+    const title = document.getElementById('announceTitle').value.trim();
+    const body = document.getElementById('announceBody').value.trim();
+    const status = document.getElementById('announceStatus');
+    if(!title || !body){ status.textContent = 'Add both a title and a message.'; return; }
+    const { error } = await supabaseClient.from('announcements').insert({ title, body, created_by: adminId });
+    if(error){ status.textContent = 'Failed to post: ' + error.message; return; }
+    document.getElementById('announceTitle').value = '';
+    document.getElementById('announceBody').value = '';
+    status.textContent = 'Posted — every user will see this next time they open the app.';
+    loadAnnouncements();
+  }
+
+  async function loadSharedTracks(userList){
+    const { data } = await supabaseClient.from('shared_tracks').select('*').order('created_at', {ascending:false});
+    const nameById = {};
+    userList.forEach(p => nameById[p.id] = p.username);
+    const rows = document.getElementById('sharedTrackRows');
+    const tracks = data || [];
+    if(tracks.length === 0){
+      rows.innerHTML = '<tr><td colspan="3" style="color:var(--tan);">No songs added by link yet.</td></tr>';
+      return;
+    }
+    rows.innerHTML = tracks.map(t => `
+      <tr>
+        <td>${escapeHtml(t.title)}</td>
+        <td>${escapeHtml(nameById[t.added_by] || 'Unknown')}</td>
+        <td><button class="remove-btn" data-url="${escapeHtml(t.url)}" title="Remove for everyone">&times;</button></td>
+      </tr>
+    `).join('');
+    rows.querySelectorAll('button[data-url]').forEach(btn => {
+      btn.onclick = async () => {
+        if(!confirm('Remove this song for every user of this app? This can\'t be undone.')) return;
+        await supabaseClient.from('shared_tracks').delete().eq('url', btn.dataset.url);
+        loadSharedTracks(userList);
+      };
+    });
+  }
+
+  function renderTable(list, onlineIds){
+    document.getElementById('onlineCount').textContent = onlineIds.size;
+    const rows = document.getElementById('userRows');
+    rows.innerHTML = list.map(p => `
+      <tr>
+        <td>${escapeHtml(p.username)}${p.is_admin ? ' (admin)' : ''}</td>
+        <td>${new Date(p.created_at).toLocaleDateString()}</td>
+        <td>${formatDuration(p.total_listen_seconds)}</td>
+        <td><span class="status-dot ${onlineIds.has(p.id) ? 'online' : ''}"></span>${onlineIds.has(p.id) ? 'Online' : 'Offline'}</td>
+      </tr>
+    `).join('');
+  }
+
+  function escapeHtml(s){
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  init();
+</script>
+</body>
+</html>

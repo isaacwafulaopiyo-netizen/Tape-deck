@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#171310">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<title>Tape Deck — About the Developer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .back-link{
+    display:inline-block;color:var(--tan);font-size:13px;text-decoration:none;margin-bottom:1rem;
+  }
+  .back-link:hover{color:var(--cream);}
+  .dev-card{
+    background:var(--surface);border:1px solid var(--line);border-radius:10px;
+    padding:1.75rem;text-align:center;margin-bottom:1.5rem;
+  }
+  .dev-photo{
+    width:96px;height:96px;border-radius:50%;
+    background:var(--surface2);border:2px solid var(--amber-dim);
+    margin:0 auto 1rem;display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;color:var(--tan);font-size:11px;
+    overflow:hidden;
+  }
+  .dev-photo img{width:100%;height:100%;object-fit:cover;}
+  .dev-name{font-family:'Oswald',sans-serif;font-size:22px;color:var(--cream);margin:0 0 2px;}
+  .dev-role{font-size:13px;color:var(--amber);margin:0 0 1rem;}
+  .dev-bio{font-size:14px;color:var(--tan);line-height:1.6;max-width:440px;margin:0 auto 1.25rem;}
+  .dev-links{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;}
+  .dev-link{
+    display:flex;align-items:center;gap:6px;
+    background:var(--surface2);border:1px solid var(--line);border-radius:20px;
+    padding:7px 14px;color:var(--cream);font-size:12px;text-decoration:none;
+  }
+  .dev-link:hover{border-color:var(--amber-dim);color:var(--amber);}
+
+  .fill-note{
+    background:var(--surface2);border:1px dashed var(--line);border-radius:8px;
+    padding:12px 14px;font-size:12px;color:var(--tan);margin-bottom:1.5rem;
+  }
+  .fill-note code{color:var(--amber);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back-link" href="index.html">&#8592; Back to Tape Deck</a>
+  <p class="eyebrow">The person behind this</p>
+  <h1>About the Developer</h1>
+
+ 
+  <div class="dev-card">
+    <!-- EDIT: replace the div below with <img src="your-photo.jpg" alt="Your name"> if you have a photo -->
+    <div class="dev-photo" id="devPhoto"><img src="myphoto.jpg" alt="Your name"></div>
+
+    <!-- EDIT: your name -->
+    <h2 class="dev-name" id="devName">Isaac Wafula Opiyo</h2>
+
+    <!-- EDIT: your role/title -->
+    <p class="dev-role" id="devRole">Developer of Tape Deck</p>
+
+    <!-- EDIT: a short bio, a few sentences about you -->
+    <p class="dev-bio" id="devBio">
+      I'm a programmer and cybersecurity enthusiast who enjoys building, experimenting, and exploring technology. I built Tape Deck as a personal space for discovering and enjoying music while combining my interests in programming and creative digital projects. I'm into coding, cybersecurity, technology, and learning how things work behind the scenes.
+
+    </p>
+
+    <div class="dev-links">
+      <!-- EDIT: fill in the href for each link you want to keep, delete any you don't want -->
+      <a class="dev-link" href="mailto:isaacwafulaopiyo@gmail.com">&#9993; Email</a>
+      <a class="dev-link" href="#" id="githubLink">&#128187; GitHub</a>
+      <a class="dev-link" href="#" id="linkedinLink">&#128188; LinkedIn</a>
+      <a class="dev-link" href="#" id="instagramLink">&#128247; Instagram</a>
+      <a class="dev-link" href="#" id="websiteLink">&#127760; Website</a>
+    </div>
+  </div>
+
+  <p class="queue-label">About this project</p>
+  <p class="dev-bio" style="margin:0 0 1.5rem;">
+    Tape Deck is a personal music player built to bring together songs from anywhere —
+    YouTube, direct links, your own uploads — into one place, with accounts, playlists,
+    and the ability to listen with friends.
+  </p>
+</div>
+</body>
+</html>

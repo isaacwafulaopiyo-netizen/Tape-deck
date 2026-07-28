@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#171310">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<title>Tape Deck — Sign in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .auth-wrap{max-width:380px;margin:0 auto;}
+  .auth-card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:1.75rem;}
+  .field{margin-bottom:1rem;}
+  .field label{display:block;font-size:12px;color:var(--tan);margin-bottom:6px;}
+  .field input{
+    width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:6px;
+    padding:11px 12px;color:var(--cream);font-family:'Inter',sans-serif;font-size:14px;
+  }
+  .field input:focus{outline:none;border-color:var(--amber-dim);}
+  .auth-btn{
+    width:100%;background:var(--amber);border:none;color:#171310;font-weight:600;
+    font-size:14px;padding:11px;border-radius:6px;cursor:pointer;margin-top:0.25rem;
+  }
+  .auth-btn:hover{background:#f0b354;}
+  .auth-btn:disabled{opacity:0.5;cursor:not-allowed;}
+  .switch-mode{text-align:center;font-size:13px;color:var(--tan);margin-top:1rem;}
+  .switch-mode a{color:var(--amber);cursor:pointer;text-decoration:none;}
+  .auth-msg{font-size:13px;text-align:center;margin-bottom:1rem;min-height:18px;}
+  .auth-msg.error{color:var(--red);}
+  .auth-msg.ok{color:var(--amber);}
+</style>
+</head>
+<body>
+<div class="wrap auth-wrap">
+  <p class="eyebrow">One deck. Every source.</p>
+  <h1>Tape Deck</h1>
+  <div class="install-banner" id="installBanner">
+    <span class="install-icon">&#8593;</span>
+    <span class="install-text">
+      <strong>Install Tape Deck</strong>
+      <span id="installSubtext">Add it to your home screen for one-tap access</span>
+    </span>
+    <button class="install-btn" id="installBtn">Install</button>
+    <button class="install-dismiss" id="installDismiss" title="Dismiss">&times;</button>
+  </div>
+
+  <div class="auth-card" id="signInCard">
+    <p class="auth-msg" id="authMsg"></p>
+    <div class="field" id="usernameField" style="display:none;">
+      <label for="usernameInput">Username</label>
+      <input type="text" id="usernameInput" placeholder="How others will see you" />
+    </div>
+    <div class="field">
+      <label for="emailInput">Email</label>
+      <input type="email" id="emailInput" placeholder="you@example.com" />
+    </div>
+    <div class="field">
+      <label for="passwordInput">Password</label>
+      <input type="password" id="passwordInput" placeholder="At least 6 characters" />
+    </div>
+    <button class="auth-btn" id="submitBtn">Sign in</button>
+    <p class="switch-mode" id="switchModeText">
+      New here? <a id="switchModeLink">Create an account</a>
+    </p>
+    <p class="switch-mode" id="forgotPasswordText">
+      <a id="forgotPasswordLink">Forgot password?</a>
+    </p>
+  </div>
+
+  <div class="auth-card" id="resetCard" style="display:none;">
+    <p class="auth-msg" id="resetMsg"></p>
+    <div class="field">
+      <label for="resetEmailInput">Email</label>
+      <input type="email" id="resetEmailInput" placeholder="you@example.com" />
+    </div>
+    <button class="auth-btn" id="resetSendBtn">Send reset link</button>
+    <p class="switch-mode"><a id="backToSignInLink">Back to sign in</a></p>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  supabaseClient.auth.getSession().then(({ data: { session } }) => {
+    if(session) window.location.replace('index.html');
+  });
+  let mode = 'signin'; // or 'signup'
+
+  const usernameField = document.getElementById('usernameField');
+  const usernameInput = document.getElementById('usernameInput');
+  const emailInput = document.getElementById('emailInput');
+  const passwordInput = document.getElementById('passwordInput');
+  const submitBtn = document.getElementById('submitBtn');
+  const authMsg = document.getElementById('authMsg');
+  const switchModeLink = document.getElementById('switchModeLink');
+  const switchModeText = document.getElementById('switchModeText');
+
+  function setMode(newMode){
+    mode = newMode;
+    authMsg.textContent = '';
+    document.getElementById('forgotPasswordText').style.display = (mode === 'signin') ? 'block' : 'none';
+    if(mode === 'signup'){
+      usernameField.style.display = 'block';
+      submitBtn.textContent = 'Create account';
+      switchModeText.innerHTML = 'Already have an account? <a id="switchModeLink">Sign in</a>';
+    } else {
+      usernameField.style.display = 'none';
+      submitBtn.textContent = 'Sign in';
+      switchModeText.innerHTML = 'New here? <a id="switchModeLink">Create an account</a>';
+    }
+    document.getElementById('switchModeLink').onclick = () => setMode(mode === 'signin' ? 'signup' : 'signin');
+  }
+  document.getElementById('switchModeLink').onclick = () => setMode('signup');
+
+  function showMsg(text, type){
+    authMsg.textContent = text;
+    authMsg.className = 'auth-msg ' + (type || '');
+  }
+
+  submitBtn.onclick = async () => {
+    const email = emailInput.value.trim();
+    const password = passwordInput.value;
+    if(!email || !password){ showMsg('Enter an email and password.', 'error'); return; }
+
+    submitBtn.disabled = true;
+    try{
+      if(mode === 'signup'){
+        const username = usernameInput.value.trim();
+        if(!username){ showMsg('Pick a username.', 'error'); submitBtn.disabled = false; return; }
+
+        const { data, error } = await supabaseClient.auth.signUp({ email, password });
+        if(error){ showMsg(error.message, 'error'); submitBtn.disabled = false; return; }
+
+        if(data.user){
+          const { error: profileError } = await supabaseClient
+            .from('profiles')
+            .insert({ id: data.user.id, username });
+          if(profileError){ showMsg(profileError.message, 'error'); submitBtn.disabled = false; return; }
+        }
+
+        if(data.session){
+          window.location.replace('index.html');
+        } else {
+          showMsg('Check your email to confirm your account, then sign in.', 'ok');
+          setMode('signin');
+        }
+      } else {
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if(error){ showMsg(error.message, 'error'); submitBtn.disabled = false; return; }
+        window.location.replace('index.html');
+      }
+    }catch(e){
+      showMsg('Something went wrong. Try again.', 'error');
+    }
+    submitBtn.disabled = false;
+  };
+
+  /* ---- install banner ---- */
+
+  const installBanner = document.getElementById('installBanner');
+  let deferredInstallPrompt = null;
+
+  function isStandalone(){
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  }
+
+  function isDismissed(){
+    return sessionStorage.getItem('installBannerDismissed') === '1';
+  }
+
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+  if(!isStandalone() && !isDismissed()){
+    if(isIos){
+      // Safari has no install prompt API -- show manual instructions instead.
+      document.getElementById('installSubtext').textContent = 'Tap the Share icon, then "Add to Home Screen"';
+      document.getElementById('installBtn').style.display = 'none';
+      installBanner.classList.add('show');
+    }
+  }
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    if(!isStandalone() && !isDismissed()) installBanner.classList.add('show');
+  });
+
+  document.getElementById('installBtn').onclick = async () => {
+    if(!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    installBanner.classList.remove('show');
+  };
+
+  document.getElementById('installDismiss').onclick = () => {
+    sessionStorage.setItem('installBannerDismissed', '1');
+    installBanner.classList.remove('show');
+  };
+
+  window.addEventListener('appinstalled', () => {
+    installBanner.classList.remove('show');
+  });
+
+  /* ---- forgot password ---- */
+
+  const authCard = document.getElementById('signInCard');
+  const resetCard = document.getElementById('resetCard');
+  const resetMsg = document.getElementById('resetMsg');
+
+  function showResetMsg(text, type){
+    resetMsg.textContent = text;
+    resetMsg.className = 'auth-msg ' + (type || '');
+  }
+
+  document.getElementById('forgotPasswordLink').onclick = () => {
+    authCard.style.display = 'none';
+    resetCard.style.display = 'block';
+    resetMsg.textContent = '';
+    document.getElementById('resetEmailInput').value = emailInput.value || '';
+  };
+
+  document.getElementById('backToSignInLink').onclick = () => {
+    resetCard.style.display = 'none';
+    authCard.style.display = 'block';
+  };
+
+  document.getElementById('resetSendBtn').onclick = async () => {
+    const email = document.getElementById('resetEmailInput').value.trim();
+    if(!email){ showResetMsg('Enter your email first.', 'error'); return; }
+    const btn = document.getElementById('resetSendBtn');
+    btn.disabled = true;
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname.replace('login.html', 'reset-password.html')
+    });
+    btn.disabled = false;
+    if(error){ showResetMsg(error.message, 'error'); return; }
+    showResetMsg('Check your email for a reset link. It may take a minute to arrive.', 'ok');
+  };
+</script>
+</body>
+</html>

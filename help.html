@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#171310">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<title>Tape Deck — Help</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .back-link{
+    display:inline-block;color:var(--tan);font-size:13px;text-decoration:none;margin-bottom:1rem;
+  }
+  .back-link:hover{color:var(--cream);}
+  .contact-card{
+    background:var(--surface);border:1px solid var(--line);border-radius:10px;
+    padding:1.25rem;margin-bottom:1.5rem;display:flex;align-items:center;gap:14px;
+  }
+  .contact-icon{
+    width:44px;height:44px;border-radius:50%;background:var(--amber);color:#171310;
+    display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;
+  }
+  .contact-info strong{display:block;font-size:14px;color:var(--cream);}
+  .contact-info a{color:var(--amber);font-size:13px;text-decoration:none;}
+  .contact-info a:hover{text-decoration:underline;}
+
+  .faq-item{border:1px solid var(--line);border-radius:6px;margin-bottom:6px;overflow:hidden;background:var(--surface);}
+  .faq-question{
+    width:100%;text-align:left;background:transparent;border:none;color:var(--cream);
+    font-family:'Inter',sans-serif;font-size:13px;font-weight:500;padding:12px 14px;
+    cursor:pointer;display:flex;justify-content:space-between;align-items:center;
+  }
+  .faq-question:hover{color:var(--amber);}
+  .faq-answer{
+    display:none;padding:0 14px 14px;font-size:13px;color:var(--tan);line-height:1.5;
+  }
+  .faq-item.open .faq-answer{display:block;}
+  .faq-item.open .faq-question{color:var(--amber);}
+
+  .chat-widget{
+    background:var(--surface);border:1px solid var(--line);border-radius:10px;
+    padding:1rem;margin-top:1.5rem;
+  }
+  .bot-messages{
+    max-height:280px;overflow-y:auto;margin-bottom:10px;display:flex;flex-direction:column;gap:8px;
+  }
+  .bot-bubble{
+    max-width:85%;padding:8px 12px;border-radius:12px;font-size:13px;line-height:1.4;
+  }
+  .bot-bubble.user{background:var(--amber);color:#171310;align-self:flex-end;border-bottom-right-radius:2px;}
+  .bot-bubble.bot{background:var(--surface2);color:var(--cream);border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:2px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back-link" href="index.html">&#8592; Back to Tape Deck</a>
+  <p class="eyebrow">We're here to help</p>
+  <h1>Help &amp; Support</h1>
+
+  <div class="contact-card">
+    <span class="contact-icon">&#9993;</span>
+    <span class="contact-info">
+      <strong>Email support</strong>
+      <a href="mailto:isaacwafulaopiyo@gmail.com">isaacwafulaopiyo@gmail.com</a>
+    </span>
+  </div>
+
+  <p class="queue-label">Frequently asked</p>
+  <div id="faqList"></div>
+
+  <p class="queue-label" style="margin-top:1.5rem;">Ask the help bot</p>
+  <div class="chat-widget">
+    <div class="bot-messages" id="botMessages">
+      <div class="bot-bubble bot">Hi! Ask me about uploading songs, playlists, syncing devices, or your account — I'll do my best. For anything I can't answer, email <a href="mailto:isaacwafulaopiyo@gmail.com" style="color:inherit;">the developer</a> directly.</div>
+    </div>
+    <div class="chat-input-row">
+      <input type="text" id="botInput" placeholder="Type a question…" />
+      <button id="botSendBtn">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const FAQ = [
+    { q: 'How do I add songs to my library?', a: 'Paste a YouTube link or a direct audio file URL into the box on the main page, or tap "Upload songs from your device" to add files from your phone or computer.' },
+    { q: 'Why can\'t I hear songs I uploaded on my other device?', a: 'Uploaded files only play on the device you uploaded them from — that\'s a browser limitation. For a song to follow you across devices, host it somewhere with a shareable link (like Google Drive, Dropbox, or cloud storage) and paste that link in instead.' },
+    { q: 'How do playlists work?', a: 'Go to the Playlists tab, create one by name, then use the "Add to…" dropdown next to any song in your Library to add it in.' },
+    { q: 'Why does the other device stop when I press play here?', a: 'Tape Deck only lets one of your devices play at a time, just like Spotify — starting playback on one device automatically pauses the others signed into the same account.' },
+    { q: 'How do I install this as an app on my phone?', a: 'Open the site in Chrome and look for the install banner or the install icon in the address bar. On iPhone, use Share → Add to Home Screen in Safari.' },
+    { q: 'How do I message someone?', a: 'Go to the People tab, find someone, and tap Message — or go straight to the Messages tab if you\'ve messaged them before.' },
+    { q: 'How do I follow someone / see what they\'re listening to?', a: 'Tap Follow next to their name in the People tab. Switch the dropdown at the top of that tab to "Following\'s activity feed" to see what they\'ve been playing.' },
+    { q: 'I forgot my password / can\'t log in.', a: 'There\'s no self-service password reset built in yet — email the developer and they can help sort out your account.' }
+  ];
+
+  const faqList = document.getElementById('faqList');
+  FAQ.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'faq-item';
+    div.innerHTML = `<button class="faq-question">${item.q}<span>&#9662;</span></button><div class="faq-answer">${item.a}</div>`;
+    div.querySelector('.faq-question').onclick = () => div.classList.toggle('open');
+    faqList.appendChild(div);
+  });
+
+  function findAnswer(question){
+    const q = question.toLowerCase();
+    let best = null, bestScore = 0;
+    FAQ.forEach(item => {
+      const words = item.q.toLowerCase().split(/\W+/).filter(w => w.length > 3);
+      const score = words.filter(w => q.includes(w)).length;
+      if(score > bestScore){ bestScore = score; best = item; }
+    });
+    return bestScore > 0 ? best.a : null;
+  }
+
+  function addBubble(text, who){
+    const box = document.getElementById('botMessages');
+    const b = document.createElement('div');
+    b.className = 'bot-bubble ' + who;
+    b.textContent = text;
+    box.appendChild(b);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function askBot(){
+    const input = document.getElementById('botInput');
+    const question = input.value.trim();
+    if(!question) return;
+    addBubble(question, 'user');
+    input.value = '';
+    const answer = findAnswer(question);
+    setTimeout(() => {
+      addBubble(answer || 'I\'m not sure about that one — try rephrasing, check the FAQ above, or email isaacwafulaopiyo@gmail.com and the developer can help directly.', 'bot');
+    }, 300);
+  }
+
+  document.getElementById('botSendBtn').onclick = askBot;
+  document.getElementById('botInput').addEventListener('keydown', (e) => {
+    if(e.key === 'Enter') askBot();
+  });
+</script>
+</body>
+</html>
