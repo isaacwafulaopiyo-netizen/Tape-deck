@@ -1306,13 +1306,39 @@
     }
 
     if(track.type === 'audio' || track.type === 'local'){
-      const dl = document.createElement('a');
+      const dl = document.createElement('button');
       dl.className = 'download-btn';
-      dl.href = track.url;
-      dl.download = track.title;
       dl.title = 'Download';
       dl.innerHTML = '&#8595;';
-      dl.onclick = (e) => e.stopPropagation();
+      dl.onclick = async (e) => {
+        e.stopPropagation();
+        if(track.type === 'local'){
+          // Local uploads are already a same-origin blob URL -- the simple
+          // approach works fine and is instant.
+          const a = document.createElement('a');
+          a.href = track.url;
+          a.download = track.title;
+          a.click();
+          return;
+        }
+        dl.innerHTML = '&#8230;';
+        try{
+          const res = await fetch(track.url);
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = track.title;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+        }catch(err){
+          showToast('Download failed — opening in a new tab instead');
+          window.open(track.url, '_blank');
+        }
+        dl.innerHTML = '&#8595;';
+      };
       item.appendChild(dl);
     }
 

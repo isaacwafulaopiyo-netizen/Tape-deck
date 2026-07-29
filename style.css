@@ -372,6 +372,8 @@ audio{width:100%;margin-top:1rem;}
 }
 .remove-btn:hover{color:var(--red);}
 .download-btn{
+  background:transparent;
+  border:none;
   color:var(--tan);
   font-size:15px;
   cursor:pointer;
