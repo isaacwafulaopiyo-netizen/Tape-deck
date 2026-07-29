@@ -1,3 +1,9 @@
+// Note: onboarding, prefs, library, playlists, and recently-played are
+  // all persisted for real via Supabase (see the persistence section
+  // below) -- an earlier version of this used a storage mechanism that
+  // only works inside Claude.ai, which silently did nothing on a
+  // standalone site. That's fixed now.
+
   /* ================= accounts, presence, follow, messaging ================= */
 
   const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -380,13 +386,26 @@
   }
 
   async function refreshUnreadCount(){
-    const { data, count } = await supabaseClient
-      .from('messages')
-      .select('sender_id', { count: 'exact' })
-      .eq('recipient_id', currentUser.id)
-      .eq('read', false);
-    document.getElementById('messagesDot').style.display = (count && count > 0) ? 'inline-block' : 'none';
-    unreadFromUserIds = new Set((data || []).map(m => m.sender_id));
+    const dotTop = document.getElementById('messagesDot');
+    const dotNav = document.getElementById('navMessagesDot');
+    try{
+      const { data, error } = await supabaseClient
+        .from('messages')
+        .select('sender_id')
+        .eq('recipient_id', currentUser.id)
+        .eq('read', false);
+      if(error) throw error;
+      const rows = data || [];
+      const hasUnread = rows.length > 0;
+      dotTop.style.display = hasUnread ? 'inline-block' : 'none';
+      dotNav.style.display = hasUnread ? 'inline-block' : 'none';
+      unreadFromUserIds = new Set(rows.map(m => m.sender_id));
+    }catch(e){
+      console.error('refreshUnreadCount failed:', e);
+      dotTop.style.display = 'none';
+      dotNav.style.display = 'none';
+      unreadFromUserIds = new Set();
+    }
   }
 
   function subscribeToGlobalMessages(){
@@ -837,22 +856,30 @@
 
   /* ---------- adding tracks ---------- */
 
+  function isDuplicateTitle(title, excludeTrack){
+    const normalized = normalizeForSearch(title);
+    return library.some(t => t !== excludeTrack && normalizeForSearch(t.title) === normalized);
+  }
+
   function addTrack(url){
     url = url.trim();
     if(!url) return;
     const info = detectType(url);
-    const track = {
-      url,
-      type: info.type,
-      ytId: info.id || null,
-      title: info.type === 'youtube' ? 'Loading title…' : shortLabel(url, info.type)
-    };
+    const title = info.type === 'youtube' ? 'Loading title…' : shortLabel(url, info.type);
+
+    if(info.type !== 'youtube' && isDuplicateTitle(title)){
+      showToast('Already in the library — skipped duplicate');
+      return;
+    }
+
+    const track = { url, type: info.type, ytId: info.id || null, title };
     library.push(track);
     if(info.type === 'youtube'){
-      fetchYoutubeTitle(track);
+      fetchYoutubeTitle(track); // duplicate check happens once the real title resolves
+    } else {
+      saveSharedTrack(track);
     }
     renderLibrary();
-    saveSharedTrack(track);
     if(currentIndex === -1){
       setScopeLibrary();
       const idx = playOrder.findIndex(t => t.url === track.url);
@@ -862,14 +889,21 @@
 
   async function saveSharedTrack(track){
     try{
-      await supabaseClient.from('shared_tracks').upsert({
+      const { error } = await supabaseClient.from('shared_tracks').upsert({
         url: track.url,
         type: track.type,
         yt_id: track.ytId,
         title: track.title,
         added_by: currentUser.id
       }, { onConflict: 'url' });
-    }catch(e){ /* non-critical -- track still saved to the user's own library */ }
+      if(error && error.code === '23505'){
+        // Someone else added the same song title just before this saved --
+        // remove the duplicate from view rather than showing it twice.
+        library = library.filter(t => t !== track);
+        renderLibrary();
+        showToast('Already in the library — skipped duplicate: ' + track.title);
+      }
+    }catch(e){ /* non-critical */ }
   }
 
   async function loadSharedTracks(){
@@ -877,6 +911,7 @@
       const { data } = await supabaseClient.from('shared_tracks').select('*');
       (data || []).forEach(row => {
         if(library.some(t => t.url === row.url)) return;
+        if(isDuplicateTitle(row.title)) return; // same song already present from another source
         library.push({
           url: row.url,
           type: row.type,
@@ -965,6 +1000,12 @@
       const res = await fetch('https://www.youtube.com/oembed?url=' + encodeURIComponent(track.url) + '&format=json');
       if(res.ok){
         const data = await res.json();
+        if(isDuplicateTitle(data.title, track)){
+          library = library.filter(t => t !== track);
+          renderLibrary();
+          showToast('Already in the library — skipped duplicate: ' + data.title);
+          return;
+        }
         track.title = data.title;
         renderLibrary();
         saveSharedTrack(track);
@@ -989,11 +1030,13 @@
         const url = isFullUrl ? entry : 'music/' + encodeURIComponent(entry);
         if(library.some(t => t.url === url)) return;
         const nameOnly = isFullUrl ? decodeURIComponent(entry.split('/').pop()) : entry;
+        const title = nameOnly.replace(/\.[^/.]+$/, '');
+        if(isDuplicateTitle(title)) return; // same song already present from another source
         library.push({
           url,
           type: 'audio',
           ytId: null,
-          title: nameOnly.replace(/\.[^/.]+$/, '')
+          title
         });
       });
       renderLibrary();
@@ -1159,6 +1202,14 @@
     document.getElementById('prevBtn').disabled = currentIndex <= 0;
     document.getElementById('nextBtn').disabled = currentIndex >= playOrder.length - 1 || currentIndex === -1;
     updateMediaSession(t);
+    updateMiniPlayer(t);
+  }
+
+  function updateMiniPlayer(track){
+    const bar = document.getElementById('miniPlayer');
+    if(!track){ bar.style.display = 'none'; return; }
+    bar.style.display = 'flex';
+    document.getElementById('miniPlayerTitle').textContent = track.title;
   }
 
   function updateMediaSession(track){
@@ -1187,7 +1238,9 @@
   }
 
   function updatePlayIcon(){
-    document.getElementById('playBtn').innerHTML = isPlaying ? '&#10074;&#10074;' : '&#9654;';
+    const icon = isPlaying ? '&#10074;&#10074;' : '&#9654;';
+    document.getElementById('playBtn').innerHTML = icon;
+    document.getElementById('miniPlayerPlayBtn').innerHTML = icon;
   }
 
   function togglePlayPause(){
@@ -1592,6 +1645,49 @@
   document.getElementById('playBtn').onclick = togglePlayPause;
   document.getElementById('nextBtn').onclick = playNext;
   document.getElementById('prevBtn').onclick = playPrev;
+
+  /* ---- mini player + bottom nav ---- */
+
+  document.getElementById('miniPlayerPlayBtn').onclick = (e) => {
+    e.stopPropagation();
+    togglePlayPause();
+  };
+  document.getElementById('miniPlayer').onclick = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  function setBottomNavActive(name){
+    document.querySelectorAll('.bottom-nav-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.nav === name);
+    });
+  }
+
+  document.querySelectorAll('.bottom-nav-btn').forEach(btn => {
+    btn.onclick = () => {
+      const action = btn.dataset.nav;
+      if(action === 'home'){
+        switchView('library');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setBottomNavActive('home');
+      } else if(action === 'search'){
+        document.getElementById('searchToggleBtn').click();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if(action === 'add'){
+        switchView('playlists');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setTimeout(() => document.getElementById('playlistNameInput').focus(), 300);
+        setBottomNavActive('add');
+      } else if(action === 'messages'){
+        switchView('messages');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setBottomNavActive('messages');
+      } else if(action === 'people'){
+        switchView('people');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setBottomNavActive('people');
+      }
+    };
+  });
 
   document.getElementById('libraryToggle').onclick = () => {
     const list = document.getElementById('queueList');

@@ -13,6 +13,34 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div class="mini-player" id="miniPlayer" style="display:none;">
+  <span class="mini-player-avatar" id="miniPlayerIcon">&#9835;</span>
+  <span class="mini-player-title" id="miniPlayerTitle">Nothing playing</span>
+  <button class="mini-player-btn" id="miniPlayerPlayBtn">&#9654;</button>
+</div>
+
+<nav class="bottom-nav" id="bottomNav">
+  <button class="bottom-nav-btn active" data-nav="home" title="Home">
+    <span class="bottom-nav-icon">&#8962;</span>
+    <span class="bottom-nav-label">Home</span>
+  </button>
+  <button class="bottom-nav-btn" data-nav="search" title="Search">
+    <span class="bottom-nav-icon">&#128269;</span>
+    <span class="bottom-nav-label">Search</span>
+  </button>
+  <button class="bottom-nav-btn bottom-nav-plus" data-nav="add" title="Create playlist">
+    <span class="bottom-nav-plus-icon">&#43;</span>
+  </button>
+  <button class="bottom-nav-btn" data-nav="messages" title="Messages">
+    <span class="bottom-nav-icon">&#9993;<span class="tab-dot" id="navMessagesDot" style="display:none;"></span></span>
+    <span class="bottom-nav-label">Messages</span>
+  </button>
+  <button class="bottom-nav-btn" data-nav="people" title="People">
+    <span class="bottom-nav-icon">&#128101;</span>
+    <span class="bottom-nav-label">People</span>
+  </button>
+</nav>
+
 <div class="wrap">
   <div class="top-row">
     <div>
