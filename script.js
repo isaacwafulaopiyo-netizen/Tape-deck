@@ -1092,10 +1092,76 @@
     audio.pause();
     audio.style.display = 'none';
     if(ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
+    stopProgressTracking();
+    resetSeekUI();
     setSpinning(false);
     markPaused();
     updatePlayIcon();
   }
+
+  /* ---- seek bar / elapsed & remaining time ---- */
+
+  let seeking = false;
+  let ytProgressInterval = null;
+
+  function formatTime(seconds){
+    if(!isFinite(seconds) || seconds < 0) seconds = 0;
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return m + ':' + String(s).padStart(2, '0');
+  }
+
+  function updateSeekUI(current, duration){
+    const bar = document.getElementById('seekBar');
+    if(duration && !seeking) bar.max = duration;
+    if(!seeking) bar.value = current;
+    document.getElementById('timeElapsed').textContent = formatTime(current);
+    document.getElementById('timeRemaining').textContent = '-' + formatTime(Math.max(0, (duration || 0) - current));
+  }
+
+  function resetSeekUI(){
+    const bar = document.getElementById('seekBar');
+    bar.value = 0;
+    bar.max = 0;
+    document.getElementById('timeElapsed').textContent = '0:00';
+    document.getElementById('timeRemaining').textContent = '-0:00';
+  }
+
+  function stopProgressTracking(){
+    if(ytProgressInterval){ clearInterval(ytProgressInterval); ytProgressInterval = null; }
+  }
+
+  function startYtProgressTracking(){
+    stopProgressTracking();
+    ytProgressInterval = setInterval(() => {
+      if(ytPlayer && ytPlayer.getCurrentTime && ytPlayer.getDuration){
+        updateSeekUI(ytPlayer.getCurrentTime(), ytPlayer.getDuration() || 0);
+      }
+    }, 500);
+  }
+
+  const audioPlayerEl = document.getElementById('audioPlayer');
+  audioPlayerEl.addEventListener('timeupdate', () => {
+    updateSeekUI(audioPlayerEl.currentTime, audioPlayerEl.duration || 0);
+  });
+  audioPlayerEl.addEventListener('loadedmetadata', () => {
+    document.getElementById('seekBar').max = audioPlayerEl.duration || 0;
+  });
+
+  document.getElementById('seekBar').addEventListener('input', (e) => {
+    seeking = true;
+    document.getElementById('timeElapsed').textContent = formatTime(Number(e.target.value));
+  });
+  document.getElementById('seekBar').addEventListener('change', (e) => {
+    const value = Number(e.target.value);
+    const track = playOrder[currentIndex];
+    if(track && (track.type === 'audio' || track.type === 'local')){
+      audioPlayerEl.currentTime = value;
+    } else if(track && track.type === 'youtube' && ytPlayer && ytPlayer.seekTo){
+      ytPlayer.seekTo(value, true);
+    }
+    seeking = false;
+  });
 
   function playIndex(i){
     if(i < 0 || i >= playOrder.length) return;
@@ -1161,12 +1227,12 @@
       events: {
         onReady: (e) => {
           e.target.setVolume(volume);
-          if(!dataSaver){ e.target.playVideo(); markPlaying(); setSpinning(true); updatePlayIcon(); }
+          if(!dataSaver){ e.target.playVideo(); markPlaying(); setSpinning(true); updatePlayIcon(); startYtProgressTracking(); }
         },
         onStateChange: (e) => {
           if(e.data === YT.PlayerState.ENDED) handleTrackEnded();
-          if(e.data === YT.PlayerState.PLAYING){ markPlaying(); setSpinning(true); updatePlayIcon(); }
-          if(e.data === YT.PlayerState.PAUSED){ markPaused(); setSpinning(false); updatePlayIcon(); }
+          if(e.data === YT.PlayerState.PLAYING){ markPlaying(); setSpinning(true); updatePlayIcon(); startYtProgressTracking(); }
+          if(e.data === YT.PlayerState.PAUSED){ markPaused(); setSpinning(false); updatePlayIcon(); stopProgressTracking(); }
         }
       }
     });
@@ -1182,6 +1248,13 @@
     } else if(repeatMode === 'all' && playOrder.length > 0){
       if(shuffleOn) shuffleArray(playOrder);
       playIndex(0);
+    } else if(activeScope.type === 'adhoc' && library.length > 1){
+      // A single searched/recently-played track ended with nothing queued
+      // after it -- keep the music going instead of stopping dead.
+      const justPlayed = playOrder[currentIndex];
+      const candidates = library.filter(t => t.url !== justPlayed.url);
+      const next = candidates[Math.floor(Math.random() * candidates.length)];
+      playAdhoc(next);
     } else {
       stopAll();
     }
@@ -1679,7 +1752,10 @@
     togglePlayPause();
   };
   document.getElementById('miniPlayer').onclick = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.getElementById('fullscreenPlayer').classList.add('open');
+  };
+  document.getElementById('fullscreenClose').onclick = () => {
+    document.getElementById('fullscreenPlayer').classList.remove('open');
   };
 
   function setBottomNavActive(name){

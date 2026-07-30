@@ -14,3 +14,6 @@ music/*.webm
 music/*.flac
 music/*.ogg
 music/*.aac
+
+# Local Netlify folder
+.netlify
