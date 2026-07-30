@@ -1,9 +1,3 @@
-// Note: onboarding, prefs, library, playlists, and recently-played are
-  // all persisted for real via Supabase (see the persistence section
-  // below) -- an earlier version of this used a storage mechanism that
-  // only works inside Claude.ai, which silently did nothing on a
-  // standalone site. That's fixed now.
-
   /* ================= accounts, presence, follow, messaging ================= */
 
   const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -1113,16 +1107,18 @@
 
   function updateSeekUI(current, duration){
     const bar = document.getElementById('seekBar');
-    if(duration && !seeking) bar.max = duration;
-    if(!seeking) bar.value = current;
+    const miniBar = document.getElementById('miniSeekBar');
+    if(duration && !seeking){ bar.max = duration; miniBar.max = duration; }
+    if(!seeking){ bar.value = current; miniBar.value = current; }
     document.getElementById('timeElapsed').textContent = formatTime(current);
     document.getElementById('timeRemaining').textContent = '-' + formatTime(Math.max(0, (duration || 0) - current));
   }
 
   function resetSeekUI(){
-    const bar = document.getElementById('seekBar');
-    bar.value = 0;
-    bar.max = 0;
+    document.getElementById('seekBar').value = 0;
+    document.getElementById('seekBar').max = 0;
+    document.getElementById('miniSeekBar').value = 0;
+    document.getElementById('miniSeekBar').max = 0;
     document.getElementById('timeElapsed').textContent = '0:00';
     document.getElementById('timeRemaining').textContent = '-0:00';
   }
@@ -1148,12 +1144,14 @@
     document.getElementById('seekBar').max = audioPlayerEl.duration || 0;
   });
 
-  document.getElementById('seekBar').addEventListener('input', (e) => {
+  function handleSeekInput(value){
     seeking = true;
-    document.getElementById('timeElapsed').textContent = formatTime(Number(e.target.value));
-  });
-  document.getElementById('seekBar').addEventListener('change', (e) => {
-    const value = Number(e.target.value);
+    document.getElementById('timeElapsed').textContent = formatTime(value);
+    document.getElementById('seekBar').value = value;
+    document.getElementById('miniSeekBar').value = value;
+  }
+
+  function handleSeekCommit(value){
     const track = playOrder[currentIndex];
     if(track && (track.type === 'audio' || track.type === 'local')){
       audioPlayerEl.currentTime = value;
@@ -1161,7 +1159,13 @@
       ytPlayer.seekTo(value, true);
     }
     seeking = false;
-  });
+  }
+
+  document.getElementById('seekBar').addEventListener('input', (e) => handleSeekInput(Number(e.target.value)));
+  document.getElementById('seekBar').addEventListener('change', (e) => handleSeekCommit(Number(e.target.value)));
+  document.getElementById('miniSeekBar').addEventListener('click', (e) => e.stopPropagation());
+  document.getElementById('miniSeekBar').addEventListener('input', (e) => { e.stopPropagation(); handleSeekInput(Number(e.target.value)); });
+  document.getElementById('miniSeekBar').addEventListener('change', (e) => { e.stopPropagation(); handleSeekCommit(Number(e.target.value)); });
 
   function playIndex(i){
     if(i < 0 || i >= playOrder.length) return;
@@ -1751,7 +1755,7 @@
     e.stopPropagation();
     togglePlayPause();
   };
-  document.getElementById('miniPlayer').onclick = () => {
+  document.getElementById('miniPlayerRow').onclick = () => {
     document.getElementById('fullscreenPlayer').classList.add('open');
   };
   document.getElementById('fullscreenClose').onclick = () => {

@@ -14,9 +14,12 @@
 </head>
 <body>
 <div class="mini-player" id="miniPlayer" style="display:none;">
-  <span class="mini-player-avatar" id="miniPlayerIcon">&#9835;</span>
-  <span class="mini-player-title" id="miniPlayerTitle">Nothing playing</span>
-  <button class="mini-player-btn" id="miniPlayerPlayBtn">&#9654;</button>
+  <input type="range" class="mini-seek-bar" id="miniSeekBar" min="0" max="0" value="0" step="1" />
+  <div class="mini-player-row" id="miniPlayerRow">
+    <span class="mini-player-avatar" id="miniPlayerIcon">&#9835;</span>
+    <span class="mini-player-title" id="miniPlayerTitle">Nothing playing</span>
+    <button class="mini-player-btn" id="miniPlayerPlayBtn">&#9654;</button>
+  </div>
 </div>
 
 <nav class="bottom-nav" id="bottomNav">
