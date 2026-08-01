@@ -125,7 +125,7 @@
         <div class="stat-card"><div class="stat-num">${formatDuration(totalListenSeconds)}</div><div class="stat-label">Total listening</div></div>
       </div>
       <table>
-        <thead><tr><th>User</th><th>Joined</th><th>Listened</th><th>Status</th></tr></thead>
+        <thead><tr><th>User</th><th>Joined</th><th>Listened</th><th>Last seen</th></tr></thead>
         <tbody id="userRows"></tbody>
       </table>
 
@@ -312,6 +312,17 @@
     });
   }
 
+  function timeAgo(iso){
+    if(!iso) return 'never';
+    const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if(secs < 60) return 'just now';
+    const mins = Math.floor(secs/60);
+    if(mins < 60) return mins + 'm ago';
+    const hrs = Math.floor(mins/60);
+    if(hrs < 24) return hrs + 'h ago';
+    return Math.floor(hrs/24) + 'd ago';
+  }
+
   function renderTable(list, onlineIds){
     document.getElementById('onlineCount').textContent = onlineIds.size;
     const rows = document.getElementById('userRows');
@@ -320,7 +331,7 @@
         <td>${escapeHtml(p.username)}${p.is_admin ? ' (admin)' : ''}</td>
         <td>${new Date(p.created_at).toLocaleDateString()}</td>
         <td>${formatDuration(p.total_listen_seconds)}</td>
-        <td><span class="status-dot ${onlineIds.has(p.id) ? 'online' : ''}"></span>${onlineIds.has(p.id) ? 'Online' : 'Offline'}</td>
+        <td>${onlineIds.has(p.id) ? 'Online now' : timeAgo(p.last_seen)}</td>
       </tr>
     `).join('');
   }

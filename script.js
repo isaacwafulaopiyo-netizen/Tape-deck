@@ -33,6 +33,7 @@
       return null;
     }
     currentUser = profile;
+    supabaseClient.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', currentUser.id).then(() => {});
     return profile;
   }
 
@@ -1076,6 +1077,7 @@
     recentlyPlayed.unshift(track);
     if(recentlyPlayed.length > 20) recentlyPlayed = recentlyPlayed.slice(0, 20);
     if(activeView === 'recent') renderRecent();
+    renderHomeDashboard();
   }
 
   function stopAll(){
@@ -1285,7 +1287,7 @@
   function updateMiniPlayer(track){
     const bar = document.getElementById('miniPlayer');
     if(!track){ bar.style.display = 'none'; return; }
-    bar.style.display = 'flex';
+    bar.style.display = isNowPlayingOpen() ? 'none' : 'flex';
     document.getElementById('miniPlayerTitle').textContent = track.title;
   }
 
@@ -1435,6 +1437,67 @@
     return item;
   }
 
+  function renderHomeDashboard(){
+    // Suggested: a handful of random songs from the library, refreshed
+    // whenever the library changes.
+    const suggestedBox = document.getElementById('suggestedGrid');
+    if(library.length === 0){
+      suggestedBox.innerHTML = '<div class="dashboard-empty">No songs yet — paste a link or upload one above.</div>';
+    } else {
+      const shuffled = library.slice().sort(() => Math.random() - 0.5).slice(0, 6);
+      suggestedBox.innerHTML = '';
+      shuffled.forEach(t => {
+        const tile = document.createElement('div');
+        tile.className = 'dashboard-tile';
+        tile.innerHTML = `<div class="dashboard-tile-icon">&#9835;</div><div class="dashboard-tile-title">${escapeHtml(t.title)}</div>`;
+        tile.onclick = () => playAdhoc(t);
+        suggestedBox.appendChild(tile);
+      });
+    }
+
+    // Playlists
+    const playlistBox = document.getElementById('dashPlaylistsGrid');
+    const playlistNames = Object.keys(playlists);
+    if(playlistNames.length === 0){
+      playlistBox.innerHTML = '<div class="dashboard-empty">No playlists yet.</div>';
+    } else {
+      playlistBox.innerHTML = '';
+      playlistNames.slice(0, 6).forEach(name => {
+        const tile = document.createElement('div');
+        tile.className = 'dashboard-tile';
+        tile.innerHTML = `<div class="dashboard-tile-icon">&#9776;</div><div class="dashboard-tile-title">${escapeHtml(name)}</div>`;
+        tile.onclick = () => {
+          switchView('playlists');
+          activePlaylistName = name;
+          renderPlaylistsPanelOnly();
+        };
+        playlistBox.appendChild(tile);
+      });
+    }
+
+    // Recently played
+    const recentBox = document.getElementById('dashRecentGrid');
+    if(recentlyPlayed.length === 0){
+      recentBox.innerHTML = '<div class="dashboard-empty">Nothing played yet.</div>';
+    } else {
+      recentBox.innerHTML = '';
+      recentlyPlayed.slice(0, 6).forEach(t => {
+        const tile = document.createElement('div');
+        tile.className = 'dashboard-tile';
+        tile.innerHTML = `<div class="dashboard-tile-icon">&#9835;</div><div class="dashboard-tile-title">${escapeHtml(t.title)}</div>`;
+        tile.onclick = () => playAdhoc(t);
+        recentBox.appendChild(tile);
+      });
+    }
+  }
+
+  function renderPlaylistsPanelOnly(){
+    document.querySelectorAll('.tab-btn').forEach(t => t.classList.toggle('active', t.dataset.view === 'playlists'));
+    document.querySelectorAll('.panel').forEach(p => p.style.display = 'none');
+    document.getElementById('playlistsPanel').style.display = 'block';
+    renderPlaylists();
+  }
+
   function renderLibrary(){
     const list = document.getElementById('queueList');
     const navBar = document.getElementById('libraryAlphaNav');
@@ -1444,6 +1507,7 @@
     if(tracks.length === 0){
       list.innerHTML = '<div class="empty">Nothing here yet. Paste a link or upload a song above.</div>';
       navBar.innerHTML = '';
+      renderHomeDashboard();
       return;
     }
 
@@ -1495,6 +1559,7 @@
         list.appendChild(row);
       });
     });
+    renderHomeDashboard();
   }
 
   async function removeFromLibrary(track){
@@ -1574,6 +1639,7 @@
   }
 
   function renderPlaylists(){
+    renderHomeDashboard();
     const chips = document.getElementById('playlistChips');
     const names = Object.keys(playlists);
     chips.innerHTML = '';
@@ -1755,11 +1821,28 @@
     e.stopPropagation();
     togglePlayPause();
   };
+  function openNowPlaying(){
+    document.getElementById('homeContent').style.display = 'none';
+    document.getElementById('nowPlayingView').style.display = 'block';
+    document.getElementById('miniPlayer').style.display = 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function closeNowPlaying(){
+    document.getElementById('nowPlayingView').style.display = 'none';
+    document.getElementById('homeContent').style.display = 'block';
+    if(playOrder[currentIndex]) document.getElementById('miniPlayer').style.display = 'flex';
+  }
+
+  function isNowPlayingOpen(){
+    return document.getElementById('nowPlayingView').style.display !== 'none';
+  }
+
   document.getElementById('miniPlayerRow').onclick = () => {
-    document.getElementById('fullscreenPlayer').classList.add('open');
+    openNowPlaying();
   };
   document.getElementById('fullscreenClose').onclick = () => {
-    document.getElementById('fullscreenPlayer').classList.remove('open');
+    closeNowPlaying();
   };
 
   function setBottomNavActive(name){
@@ -1771,6 +1854,7 @@
   document.querySelectorAll('.bottom-nav-btn').forEach(btn => {
     btn.onclick = () => {
       const action = btn.dataset.nav;
+      if(isNowPlayingOpen()) closeNowPlaying();
       if(action === 'home'){
         switchView('library');
         window.scrollTo({ top: 0, behavior: 'smooth' });

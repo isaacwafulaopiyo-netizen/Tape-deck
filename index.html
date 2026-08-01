@@ -73,44 +73,7 @@
     </div>
   </div>
 
-  <div class="search-row">
-    <button class="search-icon-btn" id="searchToggleBtn" title="Search songs">&#128269;</button>
-    <div class="search-bar" id="searchBar" style="display:none;">
-      <input type="text" id="searchInput" placeholder="Search your songs…" />
-      <button class="search-close" id="searchCloseBtn" title="Close">&times;</button>
-    </div>
-  </div>
-  <div class="search-results" id="searchResults" style="display:none;"></div>
-
-  <div class="announcement-banner" id="announcementBanner" style="display:none;">
-    <div>
-      <strong id="announcementTitle"></strong>
-      <p id="announcementBody"></p>
-    </div>
-    <button class="mini-btn" id="announcementDismiss">Got it</button>
-  </div>
-
-  <div class="announcement-banner" id="welcomeBanner" style="display:none;">
-    <div>
-      <strong id="welcomeTitle">Welcome to Tape Deck!</strong>
-      <p id="welcomeBody"></p>
-    </div>
-    <button class="mini-btn" id="welcomeDismiss">Got it</button>
-  </div>
-
-  <div class="announcement-banner" id="tasteBanner" style="display:none;">
-    <div style="flex:1;">
-      <strong>What music do you love?</strong>
-      <p style="margin-bottom:8px;">Tell us your favorite genres, artists, or songs — the developer reads these and adds music based on what people ask for.</p>
-      <textarea id="tasteInput" rows="2" placeholder="e.g. Afrobeat, Burna Boy, R&amp;B from the 2000s..." style="width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;color:var(--cream);font-family:'Inter',sans-serif;font-size:13px;resize:vertical;margin-bottom:8px;"></textarea>
-      <div style="display:flex;gap:8px;">
-        <button class="mini-btn active" id="tasteSubmitBtn">Submit</button>
-        <button class="mini-btn" id="tasteSkipBtn">Not now</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="fullscreen-player" id="fullscreenPlayer">
+  <div class="now-playing-view" id="nowPlayingView" style="display:none;">
     <button class="fullscreen-close" id="fullscreenClose" title="Close">&#8964;</button>
     <div class="cassette">
       <div class="reels">
@@ -151,6 +114,46 @@
     </div>
   </div>
 
+  <div id="homeContent">
+  <div class="search-row">
+    <button class="search-icon-btn" id="searchToggleBtn" title="Search songs">&#128269;</button>
+    <div class="search-bar" id="searchBar" style="display:none;">
+      <input type="text" id="searchInput" placeholder="Search your songs…" />
+      <button class="search-close" id="searchCloseBtn" title="Close">&times;</button>
+    </div>
+  </div>
+  <div class="search-results" id="searchResults" style="display:none;"></div>
+
+  <div class="announcement-banner" id="announcementBanner" style="display:none;">
+    <div>
+      <strong id="announcementTitle"></strong>
+      <p id="announcementBody"></p>
+    </div>
+    <button class="mini-btn" id="announcementDismiss">Got it</button>
+  </div>
+
+  <div class="announcement-banner" id="welcomeBanner" style="display:none;">
+    <div>
+      <strong id="welcomeTitle">Welcome to Tape Deck!</strong>
+      <p id="welcomeBody"></p>
+    </div>
+    <button class="mini-btn" id="welcomeDismiss">Got it</button>
+  </div>
+
+  <div class="announcement-banner" id="tasteBanner" style="display:none;">
+    <div style="flex:1;">
+      <strong>What music do you love?</strong>
+      <p style="margin-bottom:8px;">Tell us your favorite genres, artists, or songs — the developer reads these and adds music based on what people ask for.</p>
+      <textarea id="tasteInput" rows="2" placeholder="e.g. Afrobeat, Burna Boy, R&amp;B from the 2000s..." style="width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:6px;padding:8px 10px;color:var(--cream);font-family:'Inter',sans-serif;font-size:13px;resize:vertical;margin-bottom:8px;"></textarea>
+      <div style="display:flex;gap:8px;">
+        <button class="mini-btn active" id="tasteSubmitBtn">Submit</button>
+        <button class="mini-btn" id="tasteSkipBtn">Not now</button>
+      </div>
+    </div>
+  </div>
+
+
+
   <div class="home-section">
     <div class="add-row">
       <input type="text" id="urlInput" placeholder="Paste a YouTube link or direct audio file URL" />
@@ -167,6 +170,21 @@
     </div>
 
     <p class="hint">Every song — pasted links and uploads alike — is shared with everyone using this app and syncs across your devices.</p>
+  </div>
+
+  <div class="home-dashboard" id="homeDashboard">
+    <div class="dashboard-card">
+      <p class="dashboard-heading">Suggested for you</p>
+      <div class="dashboard-grid" id="suggestedGrid"></div>
+    </div>
+    <div class="dashboard-card">
+      <p class="dashboard-heading">Your playlists</p>
+      <div class="dashboard-grid" id="dashPlaylistsGrid"></div>
+    </div>
+    <div class="dashboard-card">
+      <p class="dashboard-heading">Recently played</p>
+      <div class="dashboard-grid" id="dashRecentGrid"></div>
+    </div>
   </div>
 
   <div class="tabs">
@@ -235,6 +253,7 @@
       </div>
       <div class="emoji-picker" id="emojiPicker" style="display:none;"></div>
     </div>
+  </div>
   </div>
 </div>
 

@@ -43,22 +43,18 @@ h1{
 }
 
 /* deck */
-.fullscreen-player{
-  display:none;
-  position:fixed;
-  inset:0;
-  z-index:250;
-  background:var(--bg);
-  padding:2.5rem 1.25rem;
-  overflow-y:auto;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
+.now-playing-view{
+  position:relative;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:2rem 1.25rem 1.5rem;
+  margin-bottom:1.5rem;
 }
-.fullscreen-player.open{display:flex;}
-.fullscreen-player .cassette{
+.now-playing-view .cassette{
   width:100%;
   max-width:420px;
+  margin:0 auto;
 }
 .fullscreen-close{
   position:absolute;
@@ -262,6 +258,57 @@ audio{width:100%;margin-top:1rem;}
   flex-shrink:0;
 }
 .hint{font-size:12px;color:var(--tan);margin:0.75rem 0 1.75rem;}
+
+/* home dashboard */
+.home-dashboard{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:12px;
+  margin-bottom:1.5rem;
+}
+.dashboard-card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:14px;
+}
+.dashboard-heading{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+  color:var(--amber);
+  margin:0 0 10px;
+}
+.dashboard-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(96px, 1fr));
+  gap:8px;
+}
+.dashboard-tile{
+  background:var(--surface2);
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:10px 8px;
+  cursor:pointer;
+  text-align:center;
+}
+.dashboard-tile:hover{border-color:var(--amber-dim);}
+.dashboard-tile-icon{font-size:18px;margin-bottom:4px;}
+.dashboard-tile-title{
+  font-size:11px;
+  color:var(--cream);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.dashboard-empty{
+  grid-column:1/-1;
+  font-size:12px;
+  color:var(--tan);
+  text-align:center;
+  padding:0.5rem 0;
+}
 
 /* tabs */
 .tabs{
@@ -555,11 +602,15 @@ audio{width:100%;margin-top:1rem;}
   margin:8px 0 0;
 }
 
+@media (min-width: 640px){
+  .home-dashboard{grid-template-columns:1fr 1fr 1fr;}
+}
+
 @media (max-width: 480px){
   body{padding:2rem 0.75rem 6rem;}
   h1{font-size:26px;margin-bottom:2.25rem;}
   .top-row{margin-bottom:2rem;}
-  .fullscreen-player{padding:1.5rem 1rem;}
+  .now-playing-view{padding:1.5rem 1rem;}
   .cassette{padding:1rem 0.75rem 0.75rem;}
   .reels{padding:0 0.5rem;}
   .reel{width:48px;height:48px;}
