@@ -187,33 +187,22 @@
   </div>
 
   <div class="tabs">
-    <button class="tab-btn active" id="tabLibrary" data-view="library">Library</button>
-    <button class="tab-btn" id="tabDownloads" data-view="downloads">Downloads</button>
+    <button class="tab-btn active" id="tabDownloads" data-view="downloads">Downloads</button>
     <button class="tab-btn" id="tabPlaylists" data-view="playlists">Playlists</button>
     <button class="tab-btn" id="tabRecent" data-view="recent">Recently played</button>
     <button class="tab-btn" id="tabPeople" data-view="people">People</button>
     <button class="tab-btn" id="tabMessages" data-view="messages">Messages<span class="tab-dot" id="messagesDot" style="display:none;"></span></button>
   </div>
 
-  <div id="downloadsPanel" class="panel" style="display:none;">
+  <div id="downloadsPanel" class="panel">
     <p class="hint" style="margin-top:0;">Songs saved here play even without an internet connection.</p>
     <div id="downloadsList"></div>
-  </div>
-
-  <div id="libraryPanel" class="panel">
-    <div class="library-hidden-note">
-      <span class="library-hidden-icon">&#128269;</span>
-      <p>Songs aren't browsable here anymore — use search to find and play something.</p>
-      <button class="mini-btn active" id="openSearchFromLibrary">Open search</button>
-    </div>
-    <div class="alpha-nav" id="libraryAlphaNav" style="display:none;"></div>
-    <div id="queueList" style="display:none;"></div>
   </div>
 
   <div id="playlistsPanel" class="panel" style="display:none;">
     <div class="playlist-create-row">
       <input type="text" id="playlistNameInput" placeholder="New playlist name" />
-      <button id="createPlaylistBtn">Create</button>
+      <button id="createPlaylistBtn">&#43; Create playlist</button>
     </div>
     <div id="playlistChips"></div>
     <div id="playlistTracks"></div>

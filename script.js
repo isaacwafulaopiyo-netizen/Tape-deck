@@ -809,7 +809,7 @@
   let shuffleOn = false;
   let volume = 80;
   let dataSaver = false;
-  let activeView = 'library';
+  let activeView = 'downloads';
   let activePlaylistName = null;
 
   let ytPlayer = null;
@@ -1059,7 +1059,11 @@
         tag: String(i+1).padStart(2,'0'),
         isActive,
         showPlaylistSelect: false,
-        onClick: () => playAdhoc(t),
+        onClick: () => {
+          setScopeDownloads();
+          const idx = playOrder.findIndex(pt => pt.url === t.url);
+          if(idx > -1) playIndex(idx);
+        },
         onRemove: () => removeTrackOffline(t),
         removeLabel: '&times;'
       });
@@ -1152,6 +1156,12 @@
     activeScope = {type:'playlist', name};
     const urls = playlists[name] || [];
     playOrder = urls.map(u => library.find(t => t.url === u)).filter(Boolean);
+    if(shuffleOn) shuffleArray(playOrder);
+  }
+
+  function setScopeDownloads(){
+    activeScope = {type:'downloads'};
+    playOrder = offlineSongs.slice();
     if(shuffleOn) shuffleArray(playOrder);
   }
 
@@ -1346,11 +1356,13 @@
     } else if(repeatMode === 'all' && playOrder.length > 0){
       if(shuffleOn) shuffleArray(playOrder);
       playIndex(0);
-    } else if(activeScope.type === 'adhoc' && library.length > 1){
-      // A single searched/recently-played track ended with nothing queued
-      // after it -- keep the music going instead of stopping dead.
+    } else if((activeScope.type === 'adhoc' || activeScope.type === 'playlist' || activeScope.type === 'downloads') && library.length > 1){
+      // Nothing queued after this -- keep the music going instead of
+      // stopping dead, and avoid repeating anything played recently.
       const justPlayed = playOrder[currentIndex];
-      const candidates = library.filter(t => t.url !== justPlayed.url);
+      const recentUrls = new Set(recentlyPlayed.slice(0, 5).map(t => t.url));
+      let candidates = library.filter(t => t.url !== justPlayed.url && !recentUrls.has(t.url));
+      if(candidates.length === 0) candidates = library.filter(t => t.url !== justPlayed.url);
       const next = candidates[Math.floor(Math.random() * candidates.length)];
       playAdhoc(next);
     } else {
@@ -1624,65 +1636,6 @@
   }
 
   function renderLibrary(){
-    const list = document.getElementById('queueList');
-    const navBar = document.getElementById('libraryAlphaNav');
-    list.innerHTML = '';
-    const tracks = filteredLibrary();
-    if(tracks.length === 0){
-      list.innerHTML = '<div class="empty">Nothing here yet. Paste a link or upload a song above.</div>';
-      navBar.innerHTML = '';
-      renderHomeDashboard();
-      return;
-    }
-
-    // Sorted alphabetically for browsing only -- actual playback order
-    // (setScopeLibrary/filteredLibrary) is untouched by this and keeps
-    // playing in the original add order.
-    const sorted = tracks.slice().sort((a, b) => a.title.localeCompare(b.title, undefined, {sensitivity:'base'}));
-    const groups = {};
-    sorted.forEach(t => {
-      const letter = /[a-zA-Z]/.test(t.title[0]) ? t.title[0].toUpperCase() : '#';
-      if(!groups[letter]) groups[letter] = [];
-      groups[letter].push(t);
-    });
-    const letters = Object.keys(groups).sort();
-
-    navBar.innerHTML = letters.map(l => `<button class="alpha-btn" data-letter="${l}">${l}</button>`).join('');
-    navBar.querySelectorAll('.alpha-btn').forEach(btn => {
-      btn.onclick = () => {
-        const el = document.getElementById('lib-letter-' + btn.dataset.letter);
-        if(el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      };
-    });
-
-    let counter = 0;
-    letters.forEach(letter => {
-      const header = document.createElement('div');
-      header.className = 'alpha-header';
-      header.id = 'lib-letter-' + letter;
-      header.textContent = letter;
-      list.appendChild(header);
-      groups[letter].forEach(t => {
-        counter++;
-        const isActive = activeScope.type === 'library' && playOrder[currentIndex] && playOrder[currentIndex].url === t.url;
-        const canRemove = t.type === 'local' || currentUser.is_admin;
-        const row = makeTrackRow(t, {
-          tag: String(counter).padStart(2,'0'),
-          isActive,
-          showPlaylistSelect: true,
-          onClick: () => {
-            setScopeLibrary();
-            const idx = playOrder.findIndex(pt => pt.url === t.url);
-            if(idx > -1) playIndex(idx);
-          },
-          onRemove: canRemove ? () => removeFromLibrary(t) : null,
-          confirmMessage: t.type === 'local'
-            ? 'Remove this song from your device?'
-            : `Remove "${t.title}" for every user of this app? This can't be undone.`
-        });
-        list.appendChild(row);
-      });
-    });
     renderHomeDashboard();
   }
 
@@ -1842,13 +1795,12 @@
 
   function switchView(view){
     activeView = view;
-    ['library','downloads','playlists','recent','people','messages'].forEach(v => {
+    ['downloads','playlists','recent','people','messages'].forEach(v => {
       const tabId = 'tab' + v.charAt(0).toUpperCase() + v.slice(1);
       const tabEl = document.getElementById(tabId);
       if(tabEl) tabEl.classList.toggle('active', v === view);
       document.getElementById(v + 'Panel').style.display = v === view ? 'block' : 'none';
     });
-    if(view === 'library') renderLibrary();
     if(view === 'downloads') renderDownloads();
     if(view === 'playlists') renderPlaylists();
     if(view === 'recent') renderRecent();
@@ -1980,7 +1932,6 @@
       const action = btn.dataset.nav;
       if(isNowPlayingOpen()) closeNowPlaying();
       if(action === 'home'){
-        switchView('library');
         window.scrollTo({ top: 0, behavior: 'smooth' });
         setBottomNavActive('home');
       } else if(action === 'search'){
@@ -2009,10 +1960,6 @@
       }
     };
   });
-
-  document.getElementById('openSearchFromLibrary').onclick = () => {
-    document.getElementById('searchToggleBtn').click();
-  };
 
   document.getElementById('shuffleBtn').onclick = () => {
     shuffleOn = !shuffleOn;
