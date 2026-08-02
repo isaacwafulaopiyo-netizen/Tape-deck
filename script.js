@@ -735,7 +735,7 @@
       matches.forEach(t => {
         const row = makeTrackRow(t, {
           isActive: playOrder[currentIndex] && playOrder[currentIndex].url === t.url,
-          showPlaylistSelect: false,
+          showPlaylistSelect: true,
           onClick: () => playAdhoc(t)
         });
         resultsBox.appendChild(row);
@@ -978,6 +978,95 @@
     showToast(summary.join(', '));
   }
 
+  /* ---- offline downloads (saved per-device via the Cache API) ---- */
+
+  const OFFLINE_CACHE_NAME = 'tape-deck-offline-v1';
+  let offlineSongs = [];
+
+  function loadOfflineSongsList(){
+    try{
+      offlineSongs = JSON.parse(localStorage.getItem('tape-deck-offline-songs') || '[]');
+    }catch(e){ offlineSongs = []; }
+  }
+
+  function persistOfflineSongsList(){
+    try{ localStorage.setItem('tape-deck-offline-songs', JSON.stringify(offlineSongs)); }
+    catch(e){ /* storage full or unavailable */ }
+  }
+
+  function isSavedOffline(url){
+    return offlineSongs.some(t => t.url === url);
+  }
+
+  async function saveTrackOffline(track){
+    if(!('caches' in window)){
+      showToast("Your browser doesn't support offline saving");
+      return false;
+    }
+    try{
+      const cache = await caches.open(OFFLINE_CACHE_NAME);
+      const res = await fetch(track.url);
+      if(!res.ok) throw new Error('fetch failed');
+      await cache.put(track.url, res.clone());
+      if(!isSavedOffline(track.url)){
+        offlineSongs.unshift({ url: track.url, title: track.title, type: track.type, ytId: track.ytId });
+        persistOfflineSongsList();
+      }
+      showToast('Saved for offline: ' + track.title);
+      if(activeView === 'downloads') renderDownloads();
+      return true;
+    }catch(e){
+      showToast('Could not save offline — check your connection and try again');
+      return false;
+    }
+  }
+
+  async function removeTrackOffline(track){
+    try{
+      const cache = await caches.open(OFFLINE_CACHE_NAME);
+      await cache.delete(track.url);
+    }catch(e){ /* non-critical */ }
+    offlineSongs = offlineSongs.filter(t => t.url !== track.url);
+    persistOfflineSongsList();
+    showToast('Removed from offline downloads');
+    if(activeView === 'downloads') renderDownloads();
+  }
+
+  async function getPlaybackUrl(track){
+    if((track.type === 'audio') && isSavedOffline(track.url) && 'caches' in window){
+      try{
+        const cache = await caches.open(OFFLINE_CACHE_NAME);
+        const cached = await cache.match(track.url);
+        if(cached){
+          const blob = await cached.blob();
+          return URL.createObjectURL(blob);
+        }
+      }catch(e){ /* fall through to network URL */ }
+    }
+    return track.url;
+  }
+
+  function renderDownloads(){
+    const list = document.getElementById('downloadsList');
+    list.innerHTML = '';
+    if(offlineSongs.length === 0){
+      list.innerHTML = '<div class="empty">No songs saved for offline yet. Tap the &#11015;&#65039; icon on any song to save it here.</div>';
+      return;
+    }
+    offlineSongs.forEach((t, i) => {
+      const isActive = playOrder[currentIndex] && playOrder[currentIndex].url === t.url;
+      const row = makeTrackRow(t, {
+        tag: String(i+1).padStart(2,'0'),
+        isActive,
+        showPlaylistSelect: false,
+        onClick: () => playAdhoc(t),
+        onRemove: () => removeTrackOffline(t),
+        removeLabel: '&times;'
+      });
+      list.appendChild(row);
+    });
+  }
+
   function showToast(message){
     let toast = document.getElementById('tapeDeckToast');
     if(!toast){
@@ -1192,12 +1281,15 @@
     } else if(track.type === 'audio' || track.type === 'local'){
       const audio = document.getElementById('audioPlayer');
       audio.style.display = 'block';
-      audio.src = track.url;
       audio.volume = volume / 100;
-      audio.play().then(()=>{ markPlaying(); setSpinning(true); updatePlayIcon(); }).catch(()=>{});
       audio.onended = handleTrackEnded;
       audio.onpause = () => { markPaused(); setSpinning(false); updatePlayIcon(); };
       audio.onplay = () => { markPlaying(); setSpinning(true); updatePlayIcon(); };
+      getPlaybackUrl(track).then(url => {
+        if(playOrder[currentIndex] !== track) return; // track changed again before this resolved
+        audio.src = url;
+        audio.play().then(()=>{ markPlaying(); setSpinning(true); updatePlayIcon(); }).catch(()=>{});
+      });
     } else if(track.type === 'soundcloud'){
       const holder = document.getElementById('genericHolder');
       holder.style.display = 'block';
@@ -1421,6 +1513,39 @@
       item.appendChild(dl);
     }
 
+    if(track.type === 'audio' || track.type === 'local'){
+      const offlineBtn = document.createElement('button');
+      offlineBtn.className = 'offline-btn';
+      const saved = isSavedOffline(track.url);
+      offlineBtn.classList.toggle('saved', saved);
+      offlineBtn.title = saved ? 'Saved for offline — tap to remove' : 'Save for offline';
+      offlineBtn.innerHTML = saved ? '&#10003;' : '&#11015;&#65039;';
+      offlineBtn.onclick = async (e) => {
+        e.stopPropagation();
+        if(track.type === 'local'){
+          showToast("Uploaded songs can't be saved offline the same way — they're only in this browser's memory");
+          return;
+        }
+        if(isSavedOffline(track.url)){
+          await removeTrackOffline(track);
+          offlineBtn.classList.remove('saved');
+          offlineBtn.title = 'Save for offline';
+          offlineBtn.innerHTML = '&#11015;&#65039;';
+        } else {
+          offlineBtn.innerHTML = '&#8230;';
+          const ok = await saveTrackOffline(track);
+          if(ok){
+            offlineBtn.classList.add('saved');
+            offlineBtn.title = 'Saved for offline — tap to remove';
+            offlineBtn.innerHTML = '&#10003;';
+          } else {
+            offlineBtn.innerHTML = '&#11015;&#65039;';
+          }
+        }
+      };
+      item.appendChild(offlineBtn);
+    }
+
     if(onRemove){
       const rm = document.createElement('button');
       rm.className = 'remove-btn';
@@ -1438,6 +1563,23 @@
   }
 
   function renderHomeDashboard(){
+    // Suggested: a handful of random songs from the library, refreshed
+    // whenever the library changes.
+    const suggestedBox = document.getElementById('suggestedGrid');
+    if(library.length === 0){
+      suggestedBox.innerHTML = '<div class="dashboard-empty">No songs yet — paste a link or upload one above.</div>';
+    } else {
+      const shuffled = library.slice().sort(() => Math.random() - 0.5).slice(0, 6);
+      suggestedBox.innerHTML = '';
+      shuffled.forEach(t => {
+        const tile = document.createElement('div');
+        tile.className = 'dashboard-tile';
+        tile.innerHTML = `<div class="dashboard-tile-icon">&#9835;</div><div class="dashboard-tile-title">${escapeHtml(t.title)}</div>`;
+        tile.onclick = () => playAdhoc(t);
+        suggestedBox.appendChild(tile);
+      });
+    }
+
     // Playlists
     const playlistBox = document.getElementById('dashPlaylistsGrid');
     const playlistNames = Object.keys(playlists);
@@ -1700,13 +1842,14 @@
 
   function switchView(view){
     activeView = view;
-    ['library','playlists','recent','people','messages'].forEach(v => {
+    ['library','downloads','playlists','recent','people','messages'].forEach(v => {
       const tabId = 'tab' + v.charAt(0).toUpperCase() + v.slice(1);
       const tabEl = document.getElementById(tabId);
       if(tabEl) tabEl.classList.toggle('active', v === view);
       document.getElementById(v + 'Panel').style.display = v === view ? 'block' : 'none';
     });
     if(view === 'library') renderLibrary();
+    if(view === 'downloads') renderDownloads();
     if(view === 'playlists') renderPlaylists();
     if(view === 'recent') renderRecent();
     if(view === 'people') renderPeopleView();
@@ -1910,6 +2053,7 @@
     const profile = await requireAuth();
     if(!profile) return; // requireAuth already redirected to login.html
 
+    loadOfflineSongsList();
     updateProfileHeader();
 
     // Critical path first: get the library and playback state loaded

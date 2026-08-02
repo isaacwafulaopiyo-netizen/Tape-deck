@@ -484,6 +484,17 @@ audio{width:100%;margin-top:1rem;}
   align-items:center;
 }
 .download-btn:hover{color:var(--amber);}
+.offline-btn{
+  background:transparent;
+  border:none;
+  color:var(--tan);
+  font-size:14px;
+  cursor:pointer;
+  padding:2px 6px;
+  flex-shrink:0;
+}
+.offline-btn:hover{color:var(--amber);}
+.offline-btn.saved{color:var(--amber);}
 
 .alpha-nav{
   display:flex;
@@ -613,7 +624,7 @@ audio{width:100%;margin-top:1rem;}
 }
 
 @media (min-width: 640px){
-  .home-dashboard{grid-template-columns:1fr 1fr;}
+  .home-dashboard{grid-template-columns:1fr 1fr 1fr;}
 }
 
 @media (max-width: 480px){
