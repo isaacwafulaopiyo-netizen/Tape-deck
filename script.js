@@ -76,6 +76,11 @@
     try{
       await supabaseClient.rpc('increment_listen_time', { seconds: elapsed });
     }catch(e){ /* will catch up next flush */ }
+    if(currentListeningEventId){
+      try{
+        await supabaseClient.rpc('increment_listening_event_duration', { event_id: currentListeningEventId, seconds: elapsed });
+      }catch(e){ /* non-critical -- overall total above still counted */ }
+    }
   }
 
   window.addEventListener('beforeunload', () => { flushListenTime(); broadcastStopped(); });
@@ -302,16 +307,20 @@
     return Math.floor(hrs/24) + 'd ago';
   }
 
+  let currentListeningEventId = null;
+
   async function logListeningEvent(track){
     if(!currentUser) return;
+    currentListeningEventId = null;
     try{
-      await supabaseClient.from('listening_events').insert({
+      const { data } = await supabaseClient.from('listening_events').insert({
         user_id: currentUser.id,
         track_title: track.title,
         url: track.type === 'local' ? null : track.url,
         type: track.type,
         yt_id: track.ytId
-      });
+      }).select('id').single();
+      currentListeningEventId = data ? data.id : null;
     }catch(e){ /* non-critical */ }
   }
 
@@ -853,26 +862,21 @@
 
   /* ---------- adding tracks ---------- */
 
-  function isDuplicateTitle(title, excludeTrack){
-    const normalized = normalizeForSearch(title);
-    return library.some(t => t !== excludeTrack && normalizeForSearch(t.title) === normalized);
-  }
-
   function addTrack(url){
     url = url.trim();
     if(!url) return;
     const info = detectType(url);
     const title = info.type === 'youtube' ? 'Loading title…' : shortLabel(url, info.type);
 
-    if(info.type !== 'youtube' && isDuplicateTitle(title)){
-      showToast('Already in the library — skipped duplicate');
+    if(library.some(t => t.url === url)){
+      showToast('Already in the library');
       return;
     }
 
     const track = { url, type: info.type, ytId: info.id || null, title };
     library.push(track);
     if(info.type === 'youtube'){
-      fetchYoutubeTitle(track); // duplicate check happens once the real title resolves
+      fetchYoutubeTitle(track);
     } else {
       saveSharedTrack(track);
     }
@@ -908,7 +912,6 @@
       const { data } = await supabaseClient.from('shared_tracks').select('*');
       (data || []).forEach(row => {
         if(library.some(t => t.url === row.url)) return;
-        if(isDuplicateTitle(row.title)) return; // same song already present from another source
         library.push({
           url: row.url,
           type: row.type,
@@ -924,16 +927,16 @@
     const fileList = Array.from(files);
     if(fileList.length === 0) return;
 
-    const existingTitles = new Set(library.map(t => normalizeForSearch(t.title)));
+    const existingTitles = new Set(library.map(t => t.title.toLowerCase().trim()));
     const toUpload = [];
     let skipped = 0;
     fileList.forEach(file => {
       const title = file.name.replace(/\.[^/.]+$/, '');
-      const normalized = normalizeForSearch(title);
-      if(existingTitles.has(normalized)){
+      const key = title.toLowerCase().trim();
+      if(existingTitles.has(key)){
         skipped++;
       } else {
-        existingTitles.add(normalized); // also catch duplicates within this same batch
+        existingTitles.add(key); // also catch duplicates within this same batch
         toUpload.push(file);
       }
     });
@@ -1090,12 +1093,6 @@
       const res = await fetch('https://www.youtube.com/oembed?url=' + encodeURIComponent(track.url) + '&format=json');
       if(res.ok){
         const data = await res.json();
-        if(isDuplicateTitle(data.title, track)){
-          library = library.filter(t => t !== track);
-          renderLibrary();
-          showToast('Already in the library — skipped duplicate: ' + data.title);
-          return;
-        }
         track.title = data.title;
         renderLibrary();
         saveSharedTrack(track);
@@ -1121,7 +1118,6 @@
         if(library.some(t => t.url === url)) return;
         const nameOnly = isFullUrl ? decodeURIComponent(entry.split('/').pop()) : entry;
         const title = nameOnly.replace(/\.[^/.]+$/, '');
-        if(isDuplicateTitle(title)) return; // same song already present from another source
         library.push({
           url,
           type: 'audio',

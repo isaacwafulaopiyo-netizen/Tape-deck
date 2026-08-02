@@ -1,0 +1,1 @@
+alter table public.shared_tracks drop constraint if exists shared_tracks_normalized_title_unique;
