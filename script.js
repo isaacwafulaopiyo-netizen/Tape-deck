@@ -102,11 +102,13 @@
       remoteIsPlaying = false;
       hideRemoteBanner();
     });
-    playbackChannel.subscribe();
+    playbackChannel.subscribe((status) => {
+      playbackChannelReady = (status === 'SUBSCRIBED');
+    });
   }
 
   function broadcastNowPlaying(title){
-    if(!playbackChannel) return;
+    if(!playbackChannel || !playbackChannelReady) return;
     playbackChannel.send({ type: 'broadcast', event: 'now_playing', payload: { deviceId, title } });
   }
 
@@ -750,7 +752,7 @@
     { el: '#fileInput', title: 'Or upload from your device', desc: 'Use the upload button below the link box to add songs straight from your phone or computer.', labelFor: true },
     { el: '.tabs', title: 'Everything else lives here', desc: 'Library, Playlists, Recently played, People, and Messages — switch between them with these tabs.' },
     { el: '.controls-secondary', title: 'Shuffle, repeat, volume', desc: 'Fine-tune playback here — tap Repeat to cycle through off, repeat all, and repeat one song.' },
-    { el: '#libraryToggle', title: 'Your song list', desc: 'The library starts collapsed to keep things tidy — tap here to show or hide it.' }
+    { el: '#searchToggleBtn', title: 'Find a song', desc: 'Songs aren\'t browsable anymore — tap here and type to find and play anything.' }
   ];
   let onboardingIndex = 0;
   let onboardingLastEl = null;
@@ -1212,17 +1214,15 @@
     preloadNextTrack();
   }
 
+  let lastPreloadedUrl = null;
+
   function preloadNextTrack(){
     const next = playOrder[currentIndex + 1];
-    const preload = document.getElementById('preloadAudio');
-    if(next && (next.type === 'audio' || next.type === 'local')){
-      if(preload.src !== next.url){
-        preload.src = next.url;
-        preload.load(); // starts fetching in the background; browser cache
-                          // serves it instantly when the real player needs it
-      }
-    } else {
-      preload.removeAttribute('src');
+    if(next && (next.type === 'audio' || next.type === 'local') && next.url !== lastPreloadedUrl){
+      lastPreloadedUrl = next.url;
+      fetch(next.url).catch(() => {}); // warms the browser's HTTP cache;
+                                         // playback reuses it instantly
+                                         // once this track's turn comes
     }
   }
 
@@ -1438,23 +1438,6 @@
   }
 
   function renderHomeDashboard(){
-    // Suggested: a handful of random songs from the library, refreshed
-    // whenever the library changes.
-    const suggestedBox = document.getElementById('suggestedGrid');
-    if(library.length === 0){
-      suggestedBox.innerHTML = '<div class="dashboard-empty">No songs yet — paste a link or upload one above.</div>';
-    } else {
-      const shuffled = library.slice().sort(() => Math.random() - 0.5).slice(0, 6);
-      suggestedBox.innerHTML = '';
-      shuffled.forEach(t => {
-        const tile = document.createElement('div');
-        tile.className = 'dashboard-tile';
-        tile.innerHTML = `<div class="dashboard-tile-icon">&#9835;</div><div class="dashboard-tile-title">${escapeHtml(t.title)}</div>`;
-        tile.onclick = () => playAdhoc(t);
-        suggestedBox.appendChild(tile);
-      });
-    }
-
     // Playlists
     const playlistBox = document.getElementById('dashPlaylistsGrid');
     const playlistNames = Object.keys(playlists);
@@ -1503,7 +1486,6 @@
     const navBar = document.getElementById('libraryAlphaNav');
     list.innerHTML = '';
     const tracks = filteredLibrary();
-    document.getElementById('libraryCount').textContent = tracks.length;
     if(tracks.length === 0){
       list.innerHTML = '<div class="empty">Nothing here yet. Paste a link or upload a song above.</div>';
       navBar.innerHTML = '';
@@ -1753,7 +1735,6 @@
     if(typeof saved.shuffleOn === 'boolean') shuffleOn = saved.shuffleOn;
     if(typeof saved.volume === 'number') volume = saved.volume;
     if(typeof saved.dataSaver === 'boolean') dataSaver = saved.dataSaver;
-    document.getElementById('hideLocalToggle').checked = hideLocal;
     document.getElementById('volumeSlider').value = volume;
     updateRepeatBtn();
     updateShuffleBtn();
@@ -1864,27 +1845,30 @@
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else if(action === 'add'){
         switchView('playlists');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        setTimeout(() => document.getElementById('playlistNameInput').focus(), 300);
+        setTimeout(() => {
+          const input = document.getElementById('playlistNameInput');
+          input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          input.focus();
+        }, 100);
         setBottomNavActive('add');
       } else if(action === 'messages'){
         switchView('messages');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setTimeout(() => {
+          document.getElementById('messagesPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
         setBottomNavActive('messages');
       } else if(action === 'people'){
         switchView('people');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setTimeout(() => {
+          document.getElementById('peoplePanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
         setBottomNavActive('people');
       }
     };
   });
 
-  document.getElementById('libraryToggle').onclick = () => {
-    const list = document.getElementById('queueList');
-    const btn = document.getElementById('libraryToggle');
-    const showing = list.style.display !== 'none';
-    list.style.display = showing ? 'none' : 'block';
-    btn.innerHTML = (showing ? 'Show library (' : 'Hide library (') + '<span id="libraryCount">' + filteredLibrary().length + '</span> songs)';
+  document.getElementById('openSearchFromLibrary').onclick = () => {
+    document.getElementById('searchToggleBtn').click();
   };
 
   document.getElementById('shuffleBtn').onclick = () => {
@@ -1904,12 +1888,6 @@
     const audio = document.getElementById('audioPlayer');
     audio.volume = volume / 100;
     if(ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(volume);
-    persistPrefs();
-  });
-
-  document.getElementById('hideLocalToggle').addEventListener('change', (e) => {
-    hideLocal = e.target.checked;
-    renderLibrary();
     persistPrefs();
   });
 

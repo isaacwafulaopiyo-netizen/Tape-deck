@@ -110,7 +110,6 @@
       <div id="ytHolder"></div>
       <div id="genericHolder"></div>
       <audio id="audioPlayer"></audio>
-      <audio id="preloadAudio" preload="auto" style="display:none;"></audio>
     </div>
   </div>
 
@@ -174,10 +173,6 @@
 
   <div class="home-dashboard" id="homeDashboard">
     <div class="dashboard-card">
-      <p class="dashboard-heading">Suggested for you</p>
-      <div class="dashboard-grid" id="suggestedGrid"></div>
-    </div>
-    <div class="dashboard-card">
       <p class="dashboard-heading">Your playlists</p>
       <div class="dashboard-grid" id="dashPlaylistsGrid"></div>
     </div>
@@ -196,12 +191,12 @@
   </div>
 
   <div id="libraryPanel" class="panel">
-    <label class="toggle-row">
-      <input type="checkbox" id="hideLocalToggle" />
-      <span>Hide songs uploaded from this device</span>
-    </label>
-    <button class="library-toggle" id="libraryToggle">Show library (<span id="libraryCount">0</span> songs)</button>
-    <div class="alpha-nav" id="libraryAlphaNav"></div>
+    <div class="library-hidden-note">
+      <span class="library-hidden-icon">&#128269;</span>
+      <p>Songs aren't browsable here anymore — use search to find and play something.</p>
+      <button class="mini-btn active" id="openSearchFromLibrary">Open search</button>
+    </div>
+    <div class="alpha-nav" id="libraryAlphaNav" style="display:none;"></div>
     <div id="queueList" style="display:none;"></div>
   </div>
 
