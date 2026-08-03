@@ -2,6 +2,7 @@
 
   const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   let currentUser = null;       // profile row: {id, username, is_admin, total_listen_seconds, ...}
+  let isOfflineMode = false;
   let onlineUserIds = new Set();
   let presenceChannel = null;
   let listenStartTs = null;
@@ -17,24 +18,49 @@
   let suppressBroadcastOnStop = false;
   let remoteIsPlaying = false;
 
+  function withTimeout(promise, ms){
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timed out')), ms))
+    ]);
+  }
+
   async function requireAuth(){
     const { data: { session } } = await supabaseClient.auth.getSession();
     if(!session){
       window.location.replace('login.html');
       return null;
     }
-    // Required for Realtime Authorization on private channels (presence,
-    // playback sync) -- without this, broadcasts get silently dropped.
-    await supabaseClient.realtime.setAuth(session.access_token);
-    const { data: profile, error } = await supabaseClient
-      .from('profiles').select('*').eq('id', session.user.id).single();
-    if(error || !profile){
+
+    let cachedProfile = null;
+    try{ cachedProfile = JSON.parse(localStorage.getItem('tape-deck-cached-profile') || 'null'); }catch(e){}
+
+    try{
+      // Required for Realtime Authorization on private channels (presence,
+      // playback sync) -- without this, broadcasts get silently dropped.
+      await withTimeout(supabaseClient.realtime.setAuth(session.access_token), 6000);
+      const { data: profile, error } = await withTimeout(
+        supabaseClient.from('profiles').select('*').eq('id', session.user.id).single(),
+        6000
+      );
+      if(error || !profile) throw error || new Error('no profile returned');
+      currentUser = profile;
+      try{ localStorage.setItem('tape-deck-cached-profile', JSON.stringify(profile)); }catch(e){ /* storage full or unavailable */ }
+      supabaseClient.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', currentUser.id).then(() => {});
+      return profile;
+    }catch(e){
+      // The network call failed or timed out -- likely offline. Fall back
+      // to the last known profile so things that don't need live data
+      // (like offline-saved songs) still work, instead of getting stuck
+      // or bouncing to the login page.
+      if(cachedProfile && cachedProfile.id === session.user.id){
+        currentUser = cachedProfile;
+        isOfflineMode = true;
+        return cachedProfile;
+      }
       window.location.replace('login.html');
       return null;
     }
-    currentUser = profile;
-    supabaseClient.from('profiles').update({ last_seen: new Date().toISOString() }).eq('id', currentUser.id).then(() => {});
-    return profile;
   }
 
   function formatDuration(seconds){
@@ -1998,6 +2024,11 @@
 
     loadOfflineSongsList();
     updateProfileHeader();
+
+    if(isOfflineMode){
+      showToast("You're offline — showing your downloaded songs. Other features need a connection.");
+      switchView('downloads');
+    }
 
     // Critical path first: get the library and playback state loaded
     // before anything else runs, so a failure in a secondary feature below
